@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block content %}
+<h4 class="mb-4 text-center">Step 1 — App Overview</h4>
+
+<!-- Stepper -->
+<!-- <div class="stepper mb-4">
+  <div class="step {% if active_step == 1 %}active{% elif active_step > 1 %}completed{% endif %}">
+    <div class="circle">1</div>
+    <small>Overview</small>
+  </div>
+  <div class="step {% if active_step == 2 %}active{% elif active_step > 2 %}completed{% endif %}">
+    <div class="circle">2</div>
+    <small>Competitors</small>
+  </div>
+  <div class="step {% if active_step == 3 %}active{% endif %}">
+    <div class="circle">3</div>
+    <small>Financial</small>
+  </div>
+</div> -->
+
+<form method="POST" class="needs-validation bg-white p-4 rounded shadow-sm" novalidate>
+  <div class="mb-3">
+    <label class="form-label fw-semibold">What problem does your app solve?</label>
+    <textarea name="core_problem_statement" class="form-control" rows="3" required
+      placeholder="Example: Small shop owners struggle to track daily sales and expenses efficiently."></textarea>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label fw-semibold">Who are your main users?</label>
+    <select name="user_role_segment" class="form-select multi-select" multiple required>
+      <option>Students</option>
+      <option>Small Business Owners</option>
+      <option>Freelancers</option>
+      <option>Enterprises</option>
+      <option>General Public</option>
+    </select>
+    <div class="form-text">Select all groups who will benefit from your app.</div>
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label fw-semibold">How will your app earn money?</label>
+    <select name="monetization_model" class="form-select multi-select" multiple required>
+      <option>Subscription (Monthly/Yearly)</option>
+      <option>One-Time Purchase</option>
+      <option>Freemium (Free + Premium features)</option>
+      <option>Advertising</option>
+      <option>In-App Purchases</option>
+    </select>
+    <div class="form-text">Choose one or more revenue models.</div>
+  </div>
+
+  <div class="text-end mt-4">
+    <button type="submit" class="btn btn-primary px-4">Next →</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,143 @@
+<!-- templates/step2.html -->
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container py-5">
+  <h4 class="mb-4 fw-bold text-center">Step 2 of 3 — Product & Market Understanding</h4>
+
+  {% if error %}
+  <div class="alert alert-danger">{{ error }}</div>
+  {% endif %}
+
+  <form method="POST">
+    <div class="card shadow-sm p-4 border-0 rounded-3">
+
+      <!-- Inefficiency & Unique Value -->
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Current Solution Inefficiency</label>
+          <textarea class="form-control" name="current_solution_inefficiency" rows="3"
+            placeholder="Describe what’s wrong or inefficient in current market solutions...">{{ current_solution_inefficiency }}</textarea>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Unique Value Proposition</label>
+          <textarea class="form-control" name="unique_value_proposition" rows="3"
+            placeholder="Describe how your idea stands out and what makes it valuable...">{{ unique_value_proposition }}</textarea>
+        </div>
+      </div>
+
+      <!-- Competitors & Features -->
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Primary Competitors</label>
+          <textarea class="form-control" name="primary_competitors_text" rows="3"
+            placeholder="List key competitors or similar existing solutions...">{{ primary_competitors_text }}</textarea>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Must-Have Features</label>
+          <select class="form-select" id="featuresSelect" name="must_have_features_list" multiple>
+            {% set features = [
+              'User Authentication','Social Login (Google/Facebook)','User Profiles','Push Notifications',
+              'In-App Chat / Messaging','Payment Gateway Integration','Subscription Management','Shopping Cart',
+              'Product Catalog','Search Functionality','Order Tracking','Admin Dashboard','Analytics Dashboard',
+              'AI Chatbot','Voice Commands','Camera Access','Location Tracking (GPS)','Map Integration',
+              'File Upload / Sharing','Offline Mode','Multi-language Support','Dark Mode','Cloud Sync',
+              'Calendar Integration','Task Management','To-do Lists','Document Scanner','Barcode / QR Scanner',
+              'Video Streaming','Audio Player','Blog / Article Module','Ratings & Reviews','Comments System',
+              'API Integration','Customer Support Chat','Inventory Management','Booking System','Loyalty Points',
+              'Email Notifications','SMS Notifications','Role-based Access Control','Two-Factor Authentication',
+              'Multi-tenant System','Data Export (CSV, Excel, PDF)','Custom Reports','Survey Forms',
+              'Feedback System','CMS Integration','Payment Split / Commission','Referral System',
+              'Image Gallery','AR/VR Support','Gamification','Leaderboard','Coupon Codes','Discount System',
+              'Real-time Updates','Social Feed','File Manager','Task Reminder Notifications','Support Tickets'
+            ] %}
+            
+            {% for feature in features %}
+            <option value="{{ feature }}" {% if feature in (must_have_features_list or '') %}selected{% endif %}>{{ feature }}</option>
+            {% endfor %}
+            
+            <!-- ✅ Always show "Other" at the very end -->
+            <option value="Other" {% if 'Other' in (must_have_features_list or '') %}selected{% endif %}>Other</option>
+          </select>
+          
+          <small class="text-muted">Select your must-have app features. You can also type custom ones.</small>
+
+          <!-- “Other” input field (hidden until selected) -->
+          <div id="otherFeatureDiv" class="mt-2" style="display:none;">
+            <input type="text" id="otherFeatureInput" class="form-control" placeholder="Type your custom feature here">
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Target Countries -->
+      <div class="row mb-4">
+        <div class="col-md-12">
+          <label class="form-label fw-semibold">Target Countries</label>
+          <select class="form-select" name="target_countries" multiple id="targetCountries"
+            placeholder="Select or type countries you want to target">
+            {% for country in [
+              'United States','United Kingdom','Pakistan','India','Canada','Australia','Germany','France',
+              'Italy','Spain','Brazil','China','Japan','South Korea','United Arab Emirates','Saudi Arabia',
+              'Indonesia','Singapore','Malaysia','South Africa','Egypt','Turkey','Bangladesh','Nigeria',
+              'Mexico','Thailand','Vietnam','Netherlands','Sweden','Norway','Denmark','Finland','Poland',
+              'Portugal','Switzerland','New Zealand','Ireland','Qatar','Kuwait','Bahrain','Oman',
+              'Philippines','Argentina','Chile','Colombia','Peru','Kenya','Morocco','Greece','Ukraine','Belgium'
+            ] %}
+            <option value="{{ country }}" {% if country in (target_countries or '') %}selected{% endif %}>{{ country }}</option>
+            {% endfor %}
+          </select>
+          <small class="text-muted">You can select multiple countries (use Ctrl or Command key)</small>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="d-flex justify-content-between">
+        <a href="{{ url_for('step1') }}" class="btn btn-outline-secondary px-4">← Back</a>
+        <button type="submit" class="btn btn-primary px-4">Next →</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const featuresSelect = document.getElementById("featuresSelect");
+  const otherDiv = document.getElementById("otherFeatureDiv");
+  const otherInput = document.getElementById("otherFeatureInput");
+
+  // Initialize Choices.js
+  if (window.Choices) {
+    new Choices(featuresSelect, { removeItemButton: true, searchEnabled: true });
+    new Choices(document.getElementById("targetCountries"), { removeItemButton: true, searchEnabled: true });
+  }
+
+  // Show "Other" field when selected
+  featuresSelect.addEventListener("change", function() {
+    const selected = Array.from(featuresSelect.selectedOptions).map(opt => opt.value);
+    if (selected.includes("Other")) {
+      otherDiv.style.display = "block";
+      otherInput.required = true;
+    } else {
+      otherDiv.style.display = "none";
+      otherInput.required = false;
+    }
+  });
+
+  // On form submit — append the custom feature if filled
+  const form = document.querySelector("form");
+  form.addEventListener("submit", function() {
+    const selected = Array.from(featuresSelect.selectedOptions).map(opt => opt.value);
+    if (selected.includes("Other") && otherInput.value.trim()) {
+      const hiddenInput = document.createElement("input");
+      hiddenInput.type = "hidden";
+      hiddenInput.name = "must_have_features_list";
+      hiddenInput.value = otherInput.value.trim();
+      form.appendChild(hiddenInput);
+    }
+  });
+});
+</script>
+
+{% endblock %}

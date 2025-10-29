@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <h3 class="mb-4">📊 All User Reports</h3>
+
+  <div class="card p-3 shadow-sm">
+    {% if submissions %}
+    <table class="table table-striped align-middle">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>User</th>
+          <th>Problem Statement</th>
+          <th>Verdict</th>
+          <th>Score</th>
+          <th>Date</th>
+          <th>Actions</th>
+          <th>Regenerate</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in submissions %}
+        <tr>
+          <td>{{ s.id }}</td>
+          <td>{{ s.user_name or s.user_email }}</td>
+          <td>
+            {{ s.core_problem_statement[:60] ~ ('...' if s.core_problem_statement|length > 60 else '') }}
+          </td>
+          <td>{{ s.ai_verdict or '—' }}</td>
+          <td>{{ s.ai_score or '—' }}</td>
+          <td>{{ s.created_at or '—' }}</td>
+          <td>
+            {% if s.report_file %}
+              <a href="{{ url_for('download_report', filename=s.report_file) }}" class="btn btn-sm btn-outline-primary">Download</a>
+            {% else %}
+              <span class="text-muted">No File</span>
+            {% endif %}
+          </td>
+          <td>            
+            <form action="{{ url_for('regenerate_report', report_id=s.id) }}" method="post" style="display:inline;">
+                <button type="submit" class="btn btn-sm btn-warning">♻️ Regenerate</button>
+            </form>
+          </td>
+
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-muted">No reports available yet.</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

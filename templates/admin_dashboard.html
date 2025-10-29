@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <h3 class="mb-4">👑 Admin Dashboard</h3>
+
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <div class="card p-3 shadow-sm">
+        <h5>Total Users</h5>
+        <h2 class="text-primary">{{ total_users }}</h2>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card p-3 shadow-sm">
+        <h5>Total Reports</h5>
+        <h2 class="text-primary">{{ total_reports }}</h2>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card p-3 shadow-sm">
+        <h5>Quick Actions</h5>
+        <div class="d-flex gap-2">
+          <a href="{{ url_for('admin_users') }}" class="btn btn-outline-primary">Manage Users</a>
+          <a href="{{ url_for('admin_reports') }}" class="btn btn-outline-secondary">View Reports</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h5>Recent Reports</h5>
+  <div class="card p-3">
+    {% if recent %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>User</th>
+          <th>Problem</th>
+          <th>Verdict</th>
+          <th>Score</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in recent %}
+        <tr>
+          <td>{{ r.id }}</td>
+          <td>{{ r.user_name or r.user_email }}</td>
+          <td>
+            {{ r.core_problem_statement[:60] ~ ('...' if r.core_problem_statement|length > 60 else '') }}
+          </td>
+          <td>{{ r.ai_verdict or '—' }}</td>
+          <td>{{ r.ai_score or '—' }}</td>
+          <td>{{ r.created_at or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-muted">No recent reports</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

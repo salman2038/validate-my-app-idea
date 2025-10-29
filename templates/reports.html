@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card shadow-sm p-4">
+  <h4 class="mb-4 text-primary">📁 Your AI Validation Reports</h4>
+
+  {% if reports %}
+  <table class="table table-hover align-middle">
+    <thead class="table-light">
+      <tr>
+        <th>#</th>
+        <th>Verdict</th>
+        <th>AI Score</th>
+        <th>Date</th>
+        <th>Download</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in reports %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ r['ai_verdict'] or "—" }}</td>
+        <td>{{ r['ai_score'] or "—" }}</td>
+        <td>{{ r['created_at'] or "N/A" }}</td>
+        <td>
+          {% if r['report_file'] %}
+          <a href="{{ url_for('download_report', filename=r['report_file']) }}" class="btn btn-sm btn-outline-primary">
+            ⬇ Download
+          </a>
+          {% else %}
+          <span class="text-muted">Not available</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="text-center py-5">
+    <p class="text-muted">No reports found. Generate your first idea report!</p>
+    <a href="{{ url_for('step1') }}" class="btn btn-primary">Start New Analysis</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

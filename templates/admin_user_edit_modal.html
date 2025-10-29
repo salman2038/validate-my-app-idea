@@ -1,0 +1,28 @@
+<!-- admin_user_edit_modal.html -->
+<div class="modal fade" id="editModal" tabindex="-1">
+  <div class="modal-dialog">
+    <form method="POST" action="{{ url_for('admin_update_user') }}" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit User</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="id" id="editId">
+        <div class="mb-3"><label>Name</label><input id="editName" name="name" class="form-control"></div>
+        <div class="mb-3"><label>Email</label><input id="editEmail" name="email" class="form-control" readonly></div>
+        <div class="mb-3"><label>Phone</label><input id="editPhone" name="phone" class="form-control"></div>
+        <div class="mb-3"><label>Address</label><input id="editAddress" name="address" class="form-control"></div>
+        <div class="mb-3">
+          <label>Role</label>
+          <select id="editRole" name="role" class="form-select">
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>

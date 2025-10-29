@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3>Manage Users</h3>
+    <form class="d-flex" method="GET" action="{{ url_for('admin_users') }}">
+      <input name="q" value="{{ q }}" class="form-control form-control-sm me-2" placeholder="Search name, email or phone">
+      <select name="role" class="form-select form-select-sm me-2">
+        <option value="">All Roles</option>
+        <option value="user" {% if role_filter=='user' %}selected{% endif %}>User</option>
+        <option value="admin" {% if role_filter=='admin' %}selected{% endif %}>Admin</option>
+      </select>
+      <button class="btn btn-sm btn-primary">Search</button>
+    </form>
+  </div>
+
+  <div class="card p-3">
+    {% if users %}
+    <table class="table table-striped">
+      <thead><tr><th>ID</th><th>Picture</th><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Address</th><th>Actions</th></tr></thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td>{{ u[0] }}</td>
+          <td>
+            {% if u[6] %}<img src="{{ u[6] }}" width="36" height="36" class="rounded-circle">{% else %}—{% endif %}
+          </td>
+          <td>{{ u[3] or '—' }}</td>
+          <td>{{ u[1] }}</td>
+          <td>{{ u[4] or '—' }}</td>
+          <td>{{ u[2] }}</td>
+          <td>{{ u[5] or '—' }}</td>
+          <td>
+            <button class="btn btn-sm btn-outline-primary edit-btn" 
+                    data-id="{{ u[0] }}" data-name="{{ u[3] }}" data-email="{{ u[1] }}"
+                    data-phone="{{ u[4] }}" data-role="{{ u[2] }}" data-address="{{ u[5] }}">
+              Edit
+            </button>
+            <a href="{{ url_for('admin_delete_user', user_id=u[0]) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Delete user?')">Delete</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="text-muted">No users</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Reuse the Edit Modal from prior code or create a new one here -->
+{% include 'admin_user_edit_modal.html' %}
+<script>
+  // reuse JS for filling modal (same as earlier)
+  document.querySelectorAll(".edit-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      // set modal values...
+      const modal = new bootstrap.Modal(document.getElementById("editModal"));
+      document.getElementById("editId").value = btn.dataset.id;
+      document.getElementById("editName").value = btn.dataset.name;
+      document.getElementById("editEmail").value = btn.dataset.email;
+      document.getElementById("editPhone").value = btn.dataset.phone;
+      document.getElementById("editRole").value = btn.dataset.role;
+      document.getElementById("editAddress").value = btn.dataset.address;
+      modal.show();
+    });
+  });
+</script>
+{% endblock %}

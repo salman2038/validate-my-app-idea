@@ -1,0 +1,125 @@
+<!-- templates/step3.html -->
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container py-5">
+  <h4 class="mb-4 fw-bold text-center">Step 3 of 3 — Financials & Submission</h4>
+
+  {% if error %}
+  <div class="alert alert-danger">{{ error }}</div>
+  {% endif %}
+
+  <form method="POST">
+    <div class="card shadow-sm p-4 border-0 rounded-3">
+
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Your Name</label>
+          <input type="text" name="user_name" class="form-control" placeholder="Enter your full name">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Your Email</label>
+          <input type="email" name="user_email" class="form-control" placeholder="Enter your email address">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Phone Number</label>
+          <input type="text" name="user_phone" class="form-control" placeholder="Enter your phone number">
+        </div>
+      </div>
+
+      <hr class="my-4">
+
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Average Revenue Per User (ARPU in USD)</label>
+          <input type="number" name="arpu_estimate_usd" class="form-control" placeholder="Example: 50">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Customer Acquisition Goal (Next 3 Months)</label>
+          <input type="number" name="acquisition_goal_3mo" class="form-control" placeholder="Example: 500 users">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label fw-semibold">Estimated Monthly OPEX (USD)</label>
+          <input type="number" name="monthly_opex_est_usd" class="form-control" placeholder="Example: 3000">
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Development Budget Range</label>
+          <input type="text" name="dev_budget_range" class="form-control" placeholder="Example: $5,000 - $10,000">
+        </div>
+
+        <!-- ✅ Updated External Integrations with Choices.js & Other option -->
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">External Integrations</label>
+          <select class="form-select" id="externalIntegrations" name="external_integrations_list" multiple>
+            {% set integrations = [
+              'Stripe (Payments)','PayPal','Square','Razorpay','Braintree','Google Pay','Apple Pay',
+              'Firebase','AWS (Amazon Web Services)','Microsoft Azure','Google Cloud Platform',
+              'Twilio (SMS/Voice)','SendGrid (Email API)','Mailchimp','HubSpot','Salesforce','Zoho CRM',
+              'Slack','Discord','Telegram Bot','WhatsApp API','Zoom Integration','Google Calendar',
+              'Outlook Calendar','Dropbox','Google Drive','OneDrive','Box Cloud','Shopify','WooCommerce',
+              'WordPress','Magento','Zapier','Make (Integromat)','Notion API','Airtable','Google Sheets',
+              'QuickBooks','Xero Accounting','Google Maps API','Mapbox','OpenAI / ChatGPT API',
+              'Facebook API','Instagram API','LinkedIn API','Twitter (X) API','YouTube API',
+              'TikTok API','Pinterest API','Google Analytics','Meta Ads API','Stripe Connect',
+              'Plaid (Banking)','Payoneer','Wise API','Coinbase Commerce','Blockchain API','SMS Gateway',
+              'SMTP Email Server','REST / GraphQL API','Webhook Integration','Custom ERP Integration',
+              'CRM Integration','HRMS / Payroll System','Inventory Software','E-commerce Platform',
+              'Learning Management System (LMS)','Payment Split / Commission Gateway','Other'
+            ] %}
+            {% for integration in integrations %}
+            <option value="{{ integration }}">{{ integration }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" id="otherIntegration" name="other_integration" class="form-control mt-2 d-none"
+                 placeholder="Specify other integration...">
+        </div>
+      </div>
+
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Biggest Post-Launch Fear</label>
+          <textarea name="client_post_launch_fear" class="form-control" rows="3"
+            placeholder="Describe your main concern after product launch..."></textarea>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label fw-semibold">Critical Question to Address</label>
+          <textarea name="client_critical_question" class="form-control" rows="3"
+            placeholder="What’s the biggest question you want the AI to analyze?"></textarea>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-between">
+        <a href="{{ url_for('step2') }}" class="btn btn-outline-secondary px-4">← Back</a>
+        <button type="submit" class="btn btn-success px-4">Submit for AI Evaluation</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+  const select = document.getElementById("externalIntegrations");
+  const otherInput = document.getElementById("otherIntegration");
+
+  if (window.Choices) {
+    const choices = new Choices(select, { removeItemButton: true, searchEnabled: true });
+
+    select.addEventListener("change", function() {
+      const selected = Array.from(select.selectedOptions).map(o => o.value);
+      if (selected.includes("Other")) {
+        otherInput.classList.remove("d-none");
+        otherInput.required = true;
+      } else {
+        otherInput.classList.add("d-none");
+        otherInput.required = false;
+        otherInput.value = "";
+      }
+    });
+  }
+});
+</script>
+
+{% endblock %}
