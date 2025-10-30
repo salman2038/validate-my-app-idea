@@ -230,12 +230,12 @@ def login_google():
                 "client_secret": GOOGLE_CLIENT_SECRET,
                 "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": ["http://127.0.0.1:5000/login/callback"]
+                "redirect_uris": ["https://validate-my-app-idea.onrender.com/login/callback"]
             }
         },
         scopes=["https://www.googleapis.com/auth/userinfo.email", "openid"],
     )
-    flow.redirect_uri = "http://127.0.0.1:5000/login/callback"
+    flow.redirect_uri = "https://validate-my-app-idea.onrender.com/login/callback"
     auth_url, state = flow.authorization_url(prompt="consent")
     session["oauth_state"] = state
     return redirect(auth_url)
@@ -250,12 +250,12 @@ def login_callback():
                     "client_secret": GOOGLE_CLIENT_SECRET,
                     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
                     "token_uri": "https://oauth2.googleapis.com/token",
-                    "redirect_uris": ["http://127.0.0.1:5000/login/callback"]
+                    "redirect_uris": ["https://validate-my-app-idea.onrender.com/login/callback"]
                 }
             },
             scopes=["https://www.googleapis.com/auth/userinfo.email", "openid"],
         )
-        flow.redirect_uri = "http://127.0.0.1:5000/login/callback"
+        flow.redirect_uri = "https://validate-my-app-idea.onrender.com/login/callback"
         flow.fetch_token(authorization_response=request.url)
         credentials = flow.credentials
         request_session = google.auth.transport.requests.Request()
