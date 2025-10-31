@@ -644,11 +644,18 @@ def step3():
         conn.commit()
         conn.close()
 
+
+        # Prepare user inputs dictionary FIRST
+        user_inputs = {k: session.get(k, '') for k in [
+            "core_problem_statement", "user_role_segment", "monetization_model",
+            "current_solution_inefficiency", "unique_value_proposition", "primary_competitors_text",
+            "must_have_features_list", "arpu_estimate_usd", "acquisition_goal_3mo",
+            "monthly_opex_est_usd", "external_integrations_list",
+            "client_post_launch_fear", "client_critical_question"
+        ]}
         from logic.validation import validate_app_idea
-        ...
         is_valid, reason = validate_app_idea(user_inputs)
         if not is_valid:
-            # Save record as invalid and return simple response
             return render_template(
                 'result.html',
                 verdict="❌ Invalid Submission",
