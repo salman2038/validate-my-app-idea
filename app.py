@@ -717,8 +717,7 @@ def step3():
         ))
         conn.commit()
         conn.close()
-
-        # ✅ Keep login session
+            # ✅ Keep login session
         keep = {k: session.get(k) for k in ["user_email", "role", "user_name", "user_picture"]}
         session.clear()
         session.update({k: v for k, v in keep.items() if v})
@@ -730,7 +729,7 @@ def step3():
                                suggestions=ai_result.get("suggestions", []),
                                summary=ai_result.get("summary", {}))
 
-    return render_template('step3.html', active_step=3, show_stepper=True)
+    return render_template('step3.html', active_step=3, show_stepper=True)   
 
 # ---------- Reports (user) ----------
 @app.route("/reports")
