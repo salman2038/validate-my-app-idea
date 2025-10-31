@@ -644,8 +644,7 @@ def step3():
         conn.commit()
         conn.close()
 
-
-        # Prepare user inputs dictionary FIRST
+        # ✅ Prepare user inputs once
         user_inputs = {k: session.get(k, '') for k in [
             "core_problem_statement", "user_role_segment", "monetization_model",
             "current_solution_inefficiency", "unique_value_proposition", "primary_competitors_text",
@@ -653,6 +652,8 @@ def step3():
             "monthly_opex_est_usd", "external_integrations_list",
             "client_post_launch_fear", "client_critical_question"
         ]}
+
+        # ✅ Validate
         from logic.validation import validate_app_idea
         is_valid, reason = validate_app_idea(user_inputs)
         if not is_valid:
@@ -664,21 +665,14 @@ def step3():
                 suggestions=[]
             )
 
-        # Call Gemini (AI) to evaluate
-        user_inputs = {k: session.get(k, '') for k in [
-            "core_problem_statement", "user_role_segment", "monetization_model",
-            "current_solution_inefficiency", "unique_value_proposition", "primary_competitors_text",
-            "must_have_features_list", "arpu_estimate_usd", "acquisition_goal_3mo",
-            "monthly_opex_est_usd", "external_integrations_list",
-            "client_post_launch_fear", "client_critical_question"
-        ]}
+        # ✅ Call Gemini AI safely
         try:
             ai_result = call_gemini(user_inputs)
         except Exception as e:
             print("Gemini call error:", e)
             ai_result = {"verdict": "Error", "ai_score": None, "suggestions": [], "summary": {}}
 
-        # Generate PDF report
+        # ✅ Generate PDF
         file_name = f"report_{(session.get('submitter_email') or session.get('user_email') or 'user').split('@')[0]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         file_path = os.path.join("reports", file_name)
         try:
@@ -694,24 +688,18 @@ def step3():
                     "target_countries": session.get("target_countries")
                 }, file_path)
             elif generate_pdf_report:
-                # some older helper that takes (email, ai_result) style
                 pdf_path = generate_pdf_report(session.get("submitter_email") or session.get("user_email"), ai_result)
                 file_path = pdf_path
                 file_name = os.path.basename(pdf_path)
             else:
-                # no pdf generator available — create empty placeholder file
                 with open(file_path, "wb") as f:
                     f.write(b"")
         except Exception as e:
             print("PDF generation error:", e)
-            # fallback: create empty file to avoid later file-not-found
-            try:
-                with open(file_path, "wb") as f:
-                    f.write(b"")
-            except Exception:
-                pass
+            with open(file_path, "wb") as f:
+                f.write(b"")
 
-        # update DB with AI results and file path
+        # ✅ Update DB with AI results
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
         c.execute('''
@@ -730,13 +718,12 @@ def step3():
         conn.commit()
         conn.close()
 
-        # clear session (keeps user logged in)
-        # NOTE: do not clear user_email/role or they will be logged out — only clear form fields
-        keys_to_keep = ["user_email", "role", "user_name", "user_picture"]
-        keep = {k: session.get(k) for k in keys_to_keep}
+        # ✅ Keep login session
+        keep = {k: session.get(k) for k in ["user_email", "role", "user_name", "user_picture"]}
         session.clear()
         session.update({k: v for k, v in keep.items() if v})
 
+        # ✅ Show AI results
         return render_template('result.html',
                                verdict=ai_result.get("verdict"),
                                ai_score=ai_result.get("ai_score"),
