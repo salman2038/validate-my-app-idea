@@ -73,7 +73,7 @@
 
       <!-- Target Countries -->
       <div class="row mb-4">
-        <div class="col-md-12">
+        <div class="col-md-6">
           <label class="form-label fw-semibold">Target Countries</label>
           <select class="form-select" name="target_countries" multiple id="targetCountries"
             placeholder="Select or type countries you want to target">
@@ -99,7 +99,10 @@
       </div>
     </div>
   </form>
+  
 </div>
+session['target_countries'] = ', '.join(request.form.getlist('target_countries'))
+session['other_feature'] = request.form.get('otherFeatureInput', '')
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
