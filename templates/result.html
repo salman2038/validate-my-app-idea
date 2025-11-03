@@ -1,57 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>AI Evaluation Report</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <meta charset="UTF-8">
+    <title>AI Evaluation Report</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <style>
+        .container {
+            max-width: 900px;
+        }
+        .score-box {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body class="bg-light p-5">
-  <div class="container bg-white p-4 rounded shadow">
-    <h2 class="text-center mb-4">📊 AI Evaluation Report (ID: {{ submission_id }})</h2>
-    
-    <div class="alert alert-info text-center">
-        <h4>Overall Verdict: <strong>{{ verdict or 'N/A' }}</strong></h4>
-        <p>AI Score: <strong>{{ ai_score | default('N/A') }} / 100</strong></p>
+    <div class="container bg-white p-4 rounded shadow">
+        <h2 class="text-center mb-4">📊 AI Evaluation Report (ID: {{ submission_id | default('N/A') }})</h2>
+        
+        <div class="alert alert-info text-center mb-4">
+            <h4>Overall Verdict: 
+                <strong class="text-{{ 'danger' if verdict == 'Error' or verdict == '❌ Invalid Submission' else 'success' if verdict == 'Strong Potential' else 'warning' }}">
+                    {{ verdict or 'N/A' }}
+                </strong>
+            </h4>
+            <p class="score-box">AI Score: <strong>{{ ai_score | default('N/A') }} / 100</strong></p>
+        </div>
+
+        {% if summary.error %}
+            <h3>🛑 Validation Failure/Error:</h3>
+            <div class="alert alert-danger">
+                <p><strong>Reason:</strong> {{ summary.error }}</p>
+                <p>Please review your inputs. The AI evaluation was skipped due to this error.</p>
+            </div>
+        {% endif %}
+
+        <h3>📊 Scorecard</h3>
+        {% set scorecard = summary.get('scorecard', summary.get('Scorecard', {})) %}
+        {% if scorecard %}
+            <table class="table table-bordered">
+                <thead>
+                    <tr><th>Factor</th><th>Score (1-10)</th></tr>
+                </thead>
+                <tbody>
+                    {% for key, value in scorecard.items() %}
+                        <tr><td>{{ key }}</td><td>{{ value }}</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="text-muted">Scorecard data is unavailable. (Check API response structure: looking for 'scorecard' or 'Scorecard' keys in summary.)</p>
+        {% endif %}
+
+        <div class="mt-5">
+            <h3>💡 SWOT Analysis</h3>
+            {% set swot_data = summary.get('swot', summary.get('Swot', {})) %}
+            {% if swot_data %}
+                <table class="table table-striped">
+                    <thead>
+                        <tr><th>Strengths</th><th>Weaknesses</th><th>Opportunities</th><th>Threats</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            {# Check for capitalized or lowercase internal keys #}
+                            <td><ul>{% for s in swot_data.get('Strengths', swot_data.get('strengths', [])) %}<li>{{ s }}</li>{% endfor %}</ul></td>
+                            <td><ul>{% for w in swot_data.get('Weaknesses', swot_data.get('weaknesses', [])) %}<li>{{ w }}</li>{% endfor %}</ul></td>
+                            <td><ul>{% for o in swot_data.get('Opportunities', swot_data.get('opportunities', [])) %}<li>{{ o }}</li>{% endfor %}</ul></td>
+                            <td><ul>{% for t in swot_data.get('Threats', swot_data.get('threats', [])) %}<li>{{ t }}</li>{% endfor %}</ul></td>
+                        </tr>
+                    </tbody>
+                </table>
+            {% else %}
+                <p class="text-muted">SWOT Analysis data is unavailable. (Check API response structure: looking for 'swot' or 'Swot' keys in summary.)</p>
+            {% endif %}
+        </div>
+        
+        {% if suggestions %}
+            <div class="mt-5">
+                <h3>🚀 Next Steps & Suggestions</h3>
+                <ul class="list-group mb-4">
+                    {% for s in suggestions %}
+                        <li class="list-group-item">{{ s }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
+        <div class="text-center mt-4">
+            <a href="{{ url_for('reports') }}" class="btn btn-primary">View All Reports</a>
+            {% if submission_id and report_file %}
+                <a href="{{ url_for('download_report', filename=report_file) }}" class="btn btn-success">Download PDF Report</a>
+            {% endif %}
+        </div>
+        
     </div>
-
-        <h3>📊 Scorecard</h3>
-    {% set scorecard = summary.get('scorecard', {}) %}
-    {% if scorecard %}
-        <table class="table table-bordered">
-            <tr><th>Factor</th><th>Score (1-10)</th></tr>
-            {% for key, value in scorecard.items() %}
-                <tr><td>{{ key }}</td><td>{{ value }}</td></tr>
-            {% endfor %}
-        </table>
-    {% else %}
-        <p class="text-muted">Scorecard data is unavailable.</p>
-    {% endif %}
-
-
-    <h3>💡 SWOT Analysis</h3>
-    {% set swot = summary.get('swot', {}) %}
-    {% if swot %}
-        <table class="table table-striped">
-            <tr><th>Strengths</th><th>Weaknesses</th><th>Opportunities</th><th>Threats</th></tr>
-            <tr>
-                            <td><ul>{% for s in swot.get('Strengths', []) %}<li>{{ s }}</li>{% endfor %}</ul></td>
-                <td><ul>{% for w in swot.get('Weaknesses', []) %}<li>{{ w }}</li>{% endfor %}</ul></td>
-                <td><ul>{% for o in swot.get('Opportunities', []) %}<li>{{ o }}</li>{% endfor %}</ul></td>
-                <td><ul>{% for t in swot.get('Threats', []) %}<li>{{ t }}</li>{% endfor %}</ul></td>
-            </tr>
-        </table>
-    {% else %}
-        <p class="text-muted">SWOT Analysis data is unavailable.</p>
-    {% endif %}
-
-    {% if suggestions %}
-        <h3>🚀 Next Steps & Suggestions</h3>
-        <ul class="list-group mb-4">
-            {% for s in suggestions %}
-                <li class="list-group-item">{{ s }}</li>
-            {% endfor %}
-        </ul>
-    {% endif %}
-  </div>
 </body>
 </html>
