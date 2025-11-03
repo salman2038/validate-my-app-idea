@@ -1,10 +1,11 @@
-# app.py — Full, integrated version (restore admin routes + multi-step form + Google OAuth + migrations)
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
 import sqlite3, os, json
 from dotenv import load_dotenv
 from datetime import datetime
 from functools import wraps
+
+# Ensure the reports directory exists
 os.makedirs("reports", exist_ok=True)
 
 # Your project logic utilities (must exist)
@@ -14,7 +15,7 @@ from logic.gemini_api import call_gemini
 # Optional PDF generator helpers you wrote
 # logic/pdf_generator.py should provide generate_pdf(...) or generate_pdf_report(...)
 try:
-    from logic.pdf_generator import generate_pdf_report
+    from logic.pdf_generator import generate_pdf_report, generate_pdf
 except Exception:
     generate_pdf = None
     generate_pdf_report = None
@@ -164,6 +165,11 @@ def admin_required(f):
             return redirect(url_for("dashboard"))
         return f(*args, **kwargs)
     return wrapper
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 # ---------- Auth: Signup / Local Login ----------
 @app.route("/signup", methods=["GET", "POST"])
@@ -448,10 +454,7 @@ def admin_delete_submission(submission_id):
 @admin_required
 def regenerate_report(report_id):
     """Re-generate the PDF + AI evaluation for a submission"""
-    import sqlite3, os, json
-    from datetime import datetime
-    from logic.gemini_api import call_gemini
-    from logic.pdf_generator import generate_pdf
+    # Removed redundant imports; rely on global imports
 
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
@@ -461,30 +464,54 @@ def regenerate_report(report_id):
         flash("Report not found", "danger")
         return redirect(url_for("admin_reports"))
 
+    # Convert row tuple to dictionary
     cols = [d[0] for d in c.description]
     data = dict(zip(cols, row))
-    conn.close()
+    conn.close() # Close DB connection early
 
-    ai_result = call_gemini(data)
+    # Prepare inputs for AI call
+    ai_input_data = {k: data.get(k, '') for k in data if k not in ['id', 'created_at', 'report_file']}
+    
+    # Run Validation first
+    from logic.validation import validate_app_idea
+    is_valid, reason = validate_app_idea(ai_input_data)
+    
+    if not is_valid:
+        flash(f"❌ Cannot regenerate: Submission data failed validation: {reason}", "danger")
+        return redirect(url_for("admin_reports"))
 
-    # ✅ Correct consistent filename
+    # Call AI
+    try:
+        ai_result = call_gemini(ai_input_data)
+    except Exception as e:
+        print("Gemini call error during regeneration:", e)
+        flash("⚠️ AI failed to respond during regeneration.", "warning")
+        ai_result = {"verdict": "Error", "ai_score": None, "suggestions": [], "summary": {}}
+
+    # Correct consistent filename
     safe_user = (data.get("submitter_email") or data.get("user_email") or "user").split("@")[0]
     file_name = f"report_{safe_user}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     file_path = os.path.join("reports", file_name)
 
     # Generate PDF and save in reports folder
-    generate_pdf({
-        "user_email": data.get("submitter_email") or data.get("user_email"),
-        "verdict": ai_result.get("verdict"),
-        "ai_score": ai_result.get("ai_score"),
-        "summary": ai_result.get("summary", {}),
-        "suggestions": ai_result.get("suggestions", []),
-        "submitter_name": data.get("submitter_name"),
-        "submitter_phone": data.get("submitter_phone"),
-        "target_countries": data.get("target_countries")
-    }, file_path)
+    if generate_pdf:
+        try:
+            generate_pdf({
+                "user_email": data.get("submitter_email") or data.get("user_email"),
+                "verdict": ai_result.get("verdict"),
+                "ai_score": ai_result.get("ai_score"),
+                "summary": ai_result.get("summary", {}),
+                "suggestions": ai_result.get("suggestions", []),
+                "submitter_name": data.get("submitter_name"),
+                "submitter_phone": data.get("submitter_phone"),
+                "target_countries": data.get("target_countries")
+            }, file_path)
+        except Exception as e:
+            print("PDF regeneration error:", e)
+            flash("⚠️ PDF generation failed during regeneration.", "warning")
 
-    # ✅ Save only filename (not full path)
+
+    # Save only filename (not full path)
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
     c.execute("""
@@ -504,7 +531,8 @@ def regenerate_report(report_id):
     conn.close()
 
     flash("✅ Report regenerated successfully!", "success")
-    return redirect(url_for("admin_reports"))
+    return redirect(url_for("admin_report_detail", report_id=report_id))
+
 
 # Admin - update user
 @app.route("/admin/update_user", methods=["POST"])
@@ -526,6 +554,53 @@ def admin_update_user():
     conn.close()
     flash("User updated", "success")
     return redirect(url_for("admin_users"))
+
+# Admin - View Single Report Detail
+@app.route("/admin/report_detail/<int:report_id>")
+@admin_required
+def admin_report_detail(report_id):
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT * FROM phase2_inputs WHERE id=?", (report_id,))
+    report = c.fetchone()
+    conn.close()
+
+    if not report:
+        flash("Report not found.", "danger")
+        return redirect(url_for("admin_reports"))
+    
+    # Convert complex JSON fields back to Python objects
+    try:
+        summary = json.loads(report["ai_summary"])
+    except (json.JSONDecodeError, TypeError):
+        summary = {"Summary Error": "Could not parse AI Summary."}
+    
+    try:
+        suggestions = json.loads(report["ai_suggestions"])
+    except (json.JSONDecodeError, TypeError):
+        suggestions = []
+
+    # Get the original column names for displaying input fields
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("PRAGMA table_info(phase2_inputs)")
+    cols = [r[1] for r in c.fetchall()]
+    conn.close()
+
+    # Filter inputs for display
+    display_inputs = {}
+    for col in cols:
+        # Exclude internal/output fields
+        if col not in ["id", "user_email", "complexity_score", "financial_score", "ai_verdict", "ai_score", "ai_suggestions", "ai_summary", "report_file", "created_at"]:
+             display_inputs[col.replace('_', ' ').title()] = report[col]
+
+    return render_template("admin_report_detail.html", 
+                           report=report, 
+                           summary=summary,
+                           suggestions=suggestions,
+                           inputs=display_inputs,
+                           title=f"Admin: Report #{report_id}")
 
 # ---------- Multi-step form routes ----------
 @app.route("/")
@@ -641,10 +716,13 @@ def step3():
             session.get('submitter_email'),
             session.get('submitter_phone')
         ))
+        # --- FIX: Capture the ID of the newly inserted row safely ---
+        submission_id = c.lastrowid
         conn.commit()
+        # Do NOT close connection yet, but we can if we open a new one later. Let's close it here for cleaner separation.
         conn.close()
 
-        # ✅ Prepare user inputs once
+        # Prepare user inputs once
         user_inputs = {k: session.get(k, '') for k in [
             "core_problem_statement", "user_role_segment", "monetization_model",
             "current_solution_inefficiency", "unique_value_proposition", "primary_competitors_text",
@@ -653,10 +731,22 @@ def step3():
             "client_post_launch_fear", "client_critical_question"
         ]}
 
-        # ✅ Validate
+        # Validate
         from logic.validation import validate_app_idea
         is_valid, reason = validate_app_idea(user_inputs)
         if not is_valid:
+            # Update DB with error status
+            conn = sqlite3.connect(DB_NAME)
+            c = conn.cursor()
+            c.execute('UPDATE phase2_inputs SET ai_verdict = ?, created_at = ? WHERE id = ?',
+                      ("❌ Invalid Submission", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), submission_id))
+            conn.commit()
+            conn.close()
+            # Clear session data except login info
+            keep = {k: session.get(k) for k in ["user_email", "role", "user_name", "user_picture"]}
+            session.clear()
+            session.update({k: v for k, v in keep.items() if v})
+            
             return render_template(
                 'result.html',
                 verdict="❌ Invalid Submission",
@@ -665,14 +755,14 @@ def step3():
                 suggestions=[]
             )
 
-        # ✅ Call Gemini AI safely
+        # Call Gemini AI safely
         try:
             ai_result = call_gemini(user_inputs)
         except Exception as e:
             print("Gemini call error:", e)
             ai_result = {"verdict": "Error", "ai_score": None, "suggestions": [], "summary": {}}
 
-        # ✅ Generate PDF
+        # Generate PDF
         file_name = f"report_{(session.get('submitter_email') or session.get('user_email') or 'user').split('@')[0]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         file_path = os.path.join("reports", file_name)
         try:
@@ -693,43 +783,59 @@ def step3():
                 file_name = os.path.basename(pdf_path)
             else:
                 with open(file_path, "wb") as f:
-                    f.write(b"")
+                    f.write(b"") # Write empty file if no generator is available
         except Exception as e:
             print("PDF generation error:", e)
-            with open(file_path, "wb") as f:
-                f.write(b"")
+            # Ensure an empty file exists if PDF generation fails completely
+            try:
+                   with open(file_path, "wb") as f:
+                     f.write(b"")
+            except Exception:
+                pass
 
-        # ✅ Update DB with AI results
+
+        # Update DB with AI results using the correct submission_id
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
         c.execute('''
             UPDATE phase2_inputs
             SET ai_verdict = ?, ai_score = ?, ai_suggestions = ?, ai_summary = ?,
-                report_file = ?, created_at = ?
-            WHERE id = (SELECT MAX(id) FROM phase2_inputs)
+                 report_file = ?, created_at = ?
+            WHERE id = ?
         ''', (
             ai_result.get("verdict"),
             ai_result.get("ai_score"),
             json.dumps(ai_result.get("suggestions", [])),
             json.dumps(ai_result.get("summary", {})),
             file_name,
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            submission_id # FIX: Use the securely captured submission_id
         ))
         conn.commit()
         conn.close()
-            # ✅ Keep login session
+        
+        # Keep login session
         keep = {k: session.get(k) for k in ["user_email", "role", "user_name", "user_picture"]}
         session.clear()
         session.update({k: v for k, v in keep.items() if v})
 
-        # ✅ Show AI results
+        # Show AI results
         return render_template('result.html',
                                verdict=ai_result.get("verdict"),
                                ai_score=ai_result.get("ai_score"),
                                suggestions=ai_result.get("suggestions", []),
                                summary=ai_result.get("summary", {}))
 
-    return render_template('step3.html', active_step=3, show_stepper=True)   
+    # GET request for step 3
+    # Pre-fill contact details from user session if available
+    default_name = session.get("user_name", "")
+    default_email = session.get("user_email", "")
+
+    return render_template('step3.html',
+                           active_step=3, 
+                           show_stepper=True,
+                           default_name=default_name,
+                           default_email=default_email) 
 
 # ---------- Reports (user) ----------
 @app.route("/reports")
@@ -737,7 +843,8 @@ def step3():
 def reports():
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
-    c.execute("SELECT id, ai_verdict, ai_score, report_file, created_at FROM phase2_inputs WHERE submitter_email = ? OR user_email = ? ORDER BY id DESC", (session.get("user_email"), session.get("user_email")))
+    # Fetch reports where the logged-in user is the original user OR the submitter
+    c.execute("SELECT id, ai_verdict, ai_score, report_file, created_at, core_problem_statement FROM phase2_inputs WHERE submitter_email = ? OR user_email = ? ORDER BY id DESC", (session.get("user_email"), session.get("user_email")))
     rows = c.fetchall()
     conn.close()
     reports_data = []
@@ -747,38 +854,104 @@ def reports():
             "ai_verdict": r[1],
             "ai_score": r[2],
             "report_file": r[3],
-            "created_at": r[4]
+            # Safely format timestamp
+            "created_at": r[4].split('.')[0] if r[4] else "N/A", 
+            "core_problem_statement": r[5]
         })
-    return render_template("reports.html", reports=reports_data, title="Reports")
+    return render_template("reports.html", reports=reports_data, title="My Reports")
 
-# Download single report file
-@app.route("/download/<path:filename>")
+# User - View Single Report Detail
+@app.route("/report/<int:report_id>")
 @login_required
-def download_report(filename):
-    REPORTS_FOLDER = os.path.join(os.getcwd(), "reports")
-    path = os.path.join(REPORTS_FOLDER, os.path.basename(filename))
-    if not os.path.exists(path):
-        return f"❌ File not found: {path}", 404
-    return send_file(path, as_attachment=True)
+def report_detail(report_id):
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    # Ensure the user owns the report (by original user_email or submitter_email)
+    c.execute("SELECT * FROM phase2_inputs WHERE id=? AND (user_email=? OR submitter_email=?)", 
+              (report_id, session.get("user_email"), session.get("user_email")))
+    report = c.fetchone()
+    conn.close()
 
-# ---------- Dev: reset DB (admin only) ----------
-@app.route("/reset-db")
-@admin_required
-def reset_db():
+    if not report:
+        flash("Report not found or unauthorized.", "danger")
+        return redirect(url_for("reports"))
+
+    # Convert complex JSON fields back to Python objects
+    try:
+        summary = json.loads(report["ai_summary"])
+    except (json.JSONDecodeError, TypeError):
+        summary = {"Summary Error": "Could not parse AI Summary."}
+    
+    try:
+        suggestions = json.loads(report["ai_suggestions"])
+    except (json.JSONDecodeError, TypeError):
+        suggestions = []
+
+    # Get the original column names for displaying input fields
     conn = sqlite3.connect(DB_NAME)
     c = conn.cursor()
-    c.execute("DROP TABLE IF EXISTS phase2_inputs")
-    conn.commit()
+    c.execute("PRAGMA table_info(phase2_inputs)")
+    cols = [r[1] for r in c.fetchall()]
     conn.close()
-    init_db()
-    auto_migrate_phase2()
-    flash("Database reset and migrated.", "success")
-    return redirect(url_for("admin_dashboard"))
 
-# ---------- Run ----------
-# if __name__ == "__main__":
-#     print("Starting App — DB:", DB_NAME)
-#     app.run(debug=True)
-if __name__ == "__main__":
-    from waitress import serve
-    serve(app, host="0.0.0.0", port=8080)
+    # Filter and format inputs for display
+    display_inputs = {}
+    for col in cols:
+        # Exclude internal/output fields
+        if col not in ["id", "user_email", "complexity_score", "financial_score", "ai_verdict", "ai_score", "ai_suggestions", "ai_summary", "report_file", "created_at"]:
+             display_inputs[col.replace('_', ' ').title()] = report[col]
+
+
+    return render_template("report_detail.html", 
+                           report=report, 
+                           summary=summary,
+                           suggestions=suggestions,
+                           inputs=display_inputs,
+                           title=f"Report #{report_id} Detail")
+
+
+# ---------- Secure Report Download ----------
+@app.route("/download_report/<path:filename>")
+@login_required
+def download_report(filename):
+    """Securely serve a report file if the user owns it or is an admin."""
+    # Check if the file is associated with the current user (security)
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    # Check both user_email and submitter_email
+    c.execute("SELECT id FROM phase2_inputs WHERE report_file=? AND (user_email=? OR submitter_email=?)", 
+              (filename, session.get("user_email"), session.get("user_email")))
+    is_user_report = c.fetchone()
+    conn.close()
+
+    # If the user is authorized (is the owner OR is an admin)
+    if is_user_report or session.get("role") == "admin":
+        # We use os.path.basename(filename) to prevent directory traversal attacks
+        safe_filename = os.path.basename(filename)
+        file_path = os.path.join(os.getcwd(), "reports", safe_filename)
+        
+        if os.path.exists(file_path):
+            return send_file(file_path, as_attachment=True, download_name=safe_filename)
+        else:
+            flash(f"Report file '{safe_filename}' not found on server.", "danger")
+            return redirect(url_for("reports")) 
+    else:
+        flash("You are not authorized to download this report.", "danger")
+        return redirect(url_for("reports"))
+
+if __name__ == '__main__':
+    # Add dummy inputs for testing purposes if the database is empty
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM phase2_inputs")
+    if c.fetchone()[0] == 0:
+        try:
+             from logic.dummy_data import insert_dummy_data
+             insert_dummy_data(conn)
+             print("✅ Inserted dummy data for testing.")
+        except ImportError:
+            print("⚠️ Could not import logic.dummy_data. Run the app without dummy data.")
+    conn.close()
+    # Run the application
+    app.run(debug=True)
