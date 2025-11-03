@@ -1,31 +1,57 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>AI Evaluation Report</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <meta charset="UTF-8">
+  <title>AI Evaluation Report</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
 </head>
 <body class="bg-light p-5">
-  <div class="container bg-white p-4 rounded shadow">
-    <h2 class="text-center mb-4">📊 AI Evaluation Report</h2>
-   <h3>📊 Scorecard</h3>
-<table class="table table-bordered">
-  <tr><th>Factor</th><th>Score (1-10)</th></tr>
-  {% for key, value in summary.get('scorecard', {}).items() %}
-    <tr><td>{{ key }}</td><td>{{ value }}</td></tr>
-  {% endfor %}
-</table>
+  <div class="container bg-white p-4 rounded shadow">
+    <h2 class="text-center mb-4">📊 AI Evaluation Report (ID: {{ submission_id }})</h2>
+    
+    <div class="alert alert-info text-center">
+        <h4>Overall Verdict: <strong>{{ verdict or 'N/A' }}</strong></h4>
+        <p>AI Score: <strong>{{ ai_score | default('N/A') }} / 100</strong></p>
+    </div>
 
-<h3>💡 SWOT Analysis</h3>
-<table class="table table-striped">
-  <tr><th>Strengths</th><th>Weaknesses</th><th>Opportunities</th><th>Threats</th></tr>
-  <tr>
-    <td><ul>{% for s in summary.get('swot', {}).Strengths %}<li>{{ s }}</li>{% endfor %}</ul></td>
-    <td><ul>{% for w in summary.get('swot', {}).Weaknesses %}<li>{{ w }}</li>{% endfor %}</ul></td>
-    <td><ul>{% for o in summary.get('swot', {}).Opportunities %}<li>{{ o }}</li>{% endfor %}</ul></td>
-    <td><ul>{% for t in summary.get('swot', {}).Threats %}<li>{{ t }}</li>{% endfor %}</ul></td>
-  </tr>
-</table>
-  </div>
+        <h3>📊 Scorecard</h3>
+    {% set scorecard = summary.get('scorecard', {}) %}
+    {% if scorecard %}
+        <table class="table table-bordered">
+            <tr><th>Factor</th><th>Score (1-10)</th></tr>
+            {% for key, value in scorecard.items() %}
+                <tr><td>{{ key }}</td><td>{{ value }}</td></tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p class="text-muted">Scorecard data is unavailable.</p>
+    {% endif %}
+
+
+    <h3>💡 SWOT Analysis</h3>
+    {% set swot = summary.get('swot', {}) %}
+    {% if swot %}
+        <table class="table table-striped">
+            <tr><th>Strengths</th><th>Weaknesses</th><th>Opportunities</th><th>Threats</th></tr>
+            <tr>
+                            <td><ul>{% for s in swot.get('Strengths', []) %}<li>{{ s }}</li>{% endfor %}</ul></td>
+                <td><ul>{% for w in swot.get('Weaknesses', []) %}<li>{{ w }}</li>{% endfor %}</ul></td>
+                <td><ul>{% for o in swot.get('Opportunities', []) %}<li>{{ o }}</li>{% endfor %}</ul></td>
+                <td><ul>{% for t in swot.get('Threats', []) %}<li>{{ t }}</li>{% endfor %}</ul></td>
+            </tr>
+        </table>
+    {% else %}
+        <p class="text-muted">SWOT Analysis data is unavailable.</p>
+    {% endif %}
+
+    {% if suggestions %}
+        <h3>🚀 Next Steps & Suggestions</h3>
+        <ul class="list-group mb-4">
+            {% for s in suggestions %}
+                <li class="list-group-item">{{ s }}</li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+  </div>
 </body>
 </html>
