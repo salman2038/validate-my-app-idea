@@ -10,7 +10,9 @@ from reportlab.lib.enums import TA_LEFT
 from datetime import datetime
 
 # Paths
-LOGO_PATH = os.path.join("/mnt/data", "VMAI_Logos-new.PNG")
+# NOTE: Removed hardcoded /mnt/data path for better portability, assuming LOGO_PATH is correct
+# based on your environment or the image is optional.
+LOGO_PATH = os.path.join(os.getcwd(), "VMAI_Logos-new.PNG") 
 REPORTS_DIR = os.path.join(os.getcwd(), "reports")
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
@@ -45,6 +47,18 @@ def generate_pdf_report(user_email: str, ai_result: dict):
 
     styles = _style_sheet()
     flow = []
+    
+    # --- GET SUMMARY DATA SAFELY (CRITICAL FIX) ---
+    # Since summary is now a top-level key containing the scorecard and swot
+    summary_data = ai_result.get("summary", {}) 
+    
+    # Extract data using the correct nested path
+    # Use .get() defensively against both 'scorecard' and 'Scorecard' 
+    scorecard = summary_data.get("scorecard", summary_data.get("Scorecard"))
+    swot = summary_data.get("swot", summary_data.get("Swot")) 
+    overview = summary_data.get("overview")
+    recs = summary_data.get("recommendations")
+
 
     # Header section (Logo + Title)
     if os.path.exists(LOGO_PATH):
@@ -88,7 +102,6 @@ def generate_pdf_report(user_email: str, ai_result: dict):
     flow.append(Spacer(1, 10))
 
     # Overview
-    overview = ai_result.get("summary", {}).get("overview")
     if overview:
         flow.append(Paragraph("Overview", styles["Section"]))
         flow.append(Paragraph(overview, styles["NormalLeft"]))
@@ -111,7 +124,7 @@ def generate_pdf_report(user_email: str, ai_result: dict):
         flow.append(Spacer(1, 12))
 
     # Scorecard
-    scorecard = ai_result.get("scorecard")
+    # scorecard variable is now correctly extracted from summary_data
     if isinstance(scorecard, dict) and scorecard:
         flow.append(Paragraph("Scorecard", styles["Section"]))
         rows = [["Metric", "Score"]] + [[k, str(v)] for k, v in scorecard.items()]
@@ -128,18 +141,24 @@ def generate_pdf_report(user_email: str, ai_result: dict):
         flow.append(Spacer(1, 12))
 
     # SWOT
-    swot = ai_result.get("swot")
+    # swot variable is now correctly extracted from summary_data
     if isinstance(swot, dict) and any(swot.get(k) for k in ("Strengths", "Weaknesses", "Opportunities", "Threats")):
         flow.append(Paragraph("SWOT Analysis", styles["Section"]))
         sw_colors = {
+            # Note: We are using capitalized keys for display here, which is fine
             "Strengths": "#0d6efd",
             "Weaknesses": "#198754",
             "Opportunities": "#0d6efd",
             "Threats": "#198754"
         }
-
-        for key in sw_colors.keys():
-            items = swot.get(key, [])
+        
+        # Check both capitalized and lowercase keys for robustness, matching gemini_api.py
+        swot_keys_to_check = ["Strengths", "Weaknesses", "Opportunities", "Threats"]
+        
+        for key in swot_keys_to_check:
+            # Check for capitalized key first, then lowercase key
+            items = swot.get(key, swot.get(key.lower(), []))
+            
             if items:
                 flow.append(Paragraph(f"<b><font color='{sw_colors[key]}'>{key}</font></b>", styles["NormalLeft"]))
                 sw_rows = [[Paragraph(f"• {i}", styles["NormalLeft"])] for i in items]
@@ -153,7 +172,7 @@ def generate_pdf_report(user_email: str, ai_result: dict):
                 flow.append(Spacer(1, 8))
 
     # Recommendations
-    recs = ai_result.get("summary", {}).get("recommendations")
+    # recs variable is now correctly extracted from summary_data
     if recs:
         flow.append(Paragraph("Recommendations", styles["Section"]))
         rec_rows = [[Paragraph(f"• {r}", styles["NormalLeft"])] for r in recs]
