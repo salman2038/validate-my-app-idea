@@ -1,8 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
-<h4 class="mb-4 text-center">Step 1 — App Overview</h4>
+<style>
+    /* Simple style for the stepper if you choose to uncomment it later */
+    .step { display: flex; align-items: center; }
+    .circle { 
+        width: 30px; height: 30px; border-radius: 50%; background-color: #ccc; 
+        display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; margin-right: 8px;
+    }
+    .step.active .circle { background-color: #1b33a9; } /* Using Primary Color */
+    .step.completed .circle { background-color: #46c55a; } /* Using Secondary Color */
+    .step small { font-size: 0.85rem; }
+</style>
 
-<!-- Stepper -->
+<h4 class="mb-4 text-center" style="color: #1b33a9;">Step 1 — App Overview</h4>
+
+<!-- Stepper (Uncommented for reference, adjust styling if needed) -->
 <!-- <div class="stepper mb-4">
   <div class="step {% if active_step == 1 %}active{% elif active_step > 1 %}completed{% endif %}">
     <div class="circle">1</div>
@@ -19,38 +31,151 @@
 </div> -->
 
 <form method="POST" class="needs-validation bg-white p-4 rounded shadow-sm" novalidate>
-  <div class="mb-3">
-    <label class="form-label fw-semibold">What problem does your app solve?</label>
-    <textarea name="core_problem_statement" class="form-control" rows="3" required
-      placeholder="Example: Small shop owners struggle to track daily sales and expenses efficiently."></textarea>
+  
+  <!-- 1. Core Problem Statement -->
+  <div class="mb-4">
+    <label for="core_problem" class="form-label fw-semibold">What problem does your app solve?</label>
+    <textarea name="core_problem_statement" id="core_problem" class="form-control" rows="3" required
+      placeholder="Example: Small shop owners struggle to track daily sales and expenses efficiently.">{{ core_problem_statement }}</textarea>
+    <div class="form-text">Be as specific as possible about the pain point.</div>
   </div>
 
-  <div class="mb-3">
-    <label class="form-label fw-semibold">Who are your main users?</label>
-    <select name="user_role_segment" class="form-select multi-select" multiple required>
-      <option>Students</option>
-      <option>Small Business Owners</option>
-      <option>Freelancers</option>
-      <option>Enterprises</option>
-      <option>General Public</option>
+  <!-- 2. Who are your main users? -->
+  <div class="mb-4">
+    <label class="form-label fw-semibold">Who are your main users? (Select all that apply)</label>
+    <select name="user_role_segment" id="user_role_segment" class="form-select multi-select" multiple required>
+      <option value="Students">Students</option>
+      <option value="Small Business Owners">Small Business Owners (SMB)</option>
+      <option value="Freelancers/Contractors">Freelancers/Contractors</option>
+      <option value="Mid-Market/Enterprise">Mid-Market/Enterprise</option>
+      <option value="General Consumers">General Consumers (B2C)</option>
+      <option value="Developers/Technical Users">Developers/Technical Users</option>
+      <option value="Non-Profit/Government">Non-Profit/Government</option>
+      <option value="Other_User">Other...</option>
     </select>
-    <div class="form-text">Select all groups who will benefit from your app.</div>
+    <!-- Input to capture custom text when "Other" is selected -->
+    <input type="text" name="user_role_segment_other" id="user_role_segment_other" 
+           class="form-control mt-2 d-none" placeholder="Specify user segment...">
+    <div class="form-text">Select all primary user groups.</div>
   </div>
 
-  <div class="mb-3">
-    <label class="form-label fw-semibold">How will your app earn money?</label>
-    <select name="monetization_model" class="form-select multi-select" multiple required>
-      <option>Subscription (Monthly/Yearly)</option>
-      <option>One-Time Purchase</option>
-      <option>Freemium (Free + Premium features)</option>
-      <option>Advertising</option>
-      <option>In-App Purchases</option>
+  <!-- 3. How will your app earn money? -->
+  <div class="mb-4">
+    <label class="form-label fw-semibold">How will your app earn money? (Select all that apply)</label>
+    <select name="monetization_model" id="monetization_model" class="form-select multi-select" multiple required>
+      <option value="Subscription (Monthly/Yearly)">Subscription (Monthly/Yearly)</option>
+      <option value="One-Time Purchase">One-Time Purchase (Perpetual License)</option>
+      <option value="Freemium">Freemium (Free + Premium features)</option>
+      <option value="Advertising">Advertising/Sponsorships</option>
+      <option value="In-App Purchases">In-App Purchases (IAP)</option>
+      <option value="Transaction Fee">Transaction Fee/Commission</option>
+      <option value="Data Licensing">Data Licensing/API Access</option>
+      <option value="Other_Money">Other...</option>
     </select>
+    <!-- Input to capture custom text when "Other" is selected -->
+    <input type="text" name="monetization_model_other" id="monetization_model_other" 
+           class="form-control mt-2 d-none" placeholder="Specify revenue model...">
     <div class="form-text">Choose one or more revenue models.</div>
   </div>
 
-  <div class="text-end mt-4">
-    <button type="submit" class="btn btn-primary px-4">Next →</button>
+  <div class="text-end mt-5">
+    <button type="submit" class="btn btn-primary px-4" style="background-color: #1b33a9; border-color: #1b33a9;">Next →</button>
   </div>
 </form>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const userSelect = document.getElementById('user_role_segment');
+    const userOtherInput = document.getElementById('user_role_segment_other');
+    const moneySelect = document.getElementById('monetization_model');
+    const moneyOtherInput = document.getElementById('monetization_model_other');
+
+    // --- Helper function to handle "Other" visibility and selection ---
+    function handleOther(selectElement, otherInput) {
+        const otherValue = Array.from(selectElement.options).find(opt => opt.value.endsWith('_Other'));
+        
+        // Check if 'Other' option is selected
+        const isOtherSelected = Array.from(selectElement.selectedOptions).some(opt => opt.value.endsWith('_Other'));
+
+        if (isOtherSelected) {
+            otherInput.classList.remove('d-none');
+            otherInput.setAttribute('required', 'required');
+        } else {
+            otherInput.classList.add('d-none');
+            otherInput.removeAttribute('required');
+            otherInput.value = ''; // Clear text field if 'Other' is deselected
+        }
+    }
+
+    // --- Event Listeners ---
+    userSelect.addEventListener('change', () => handleOther(userSelect, userOtherInput));
+    moneySelect.addEventListener('change', () => handleOther(moneySelect, moneyOtherInput));
+
+    // --- Initial State Check (important for re-populating) ---
+    handleOther(userSelect, userOtherInput);
+    handleOther(moneySelect, moneyOtherInput);
+
+    // --- Form Submission Pre-processing (to combine 'Other' text) ---
+    const form = document.querySelector('form');
+    form.addEventListener('submit', function(event) {
+        // 1. Handle User Role Segment
+        if (userSelect.value.includes('Other_User')) {
+            const otherText = userOtherInput.value.trim();
+            if (otherText) {
+                // Remove the placeholder 'Other_User' option
+                Array.from(userSelect.options).find(opt => opt.value === 'Other_User').remove();
+                // Add the custom text as a new option that will be submitted
+                const newOption = new Option(otherText, otherText, true, true);
+                userSelect.add(newOption);
+            }
+        }
+
+        // 2. Handle Monetization Model
+        if (moneySelect.value.includes('Other_Money')) {
+            const otherText = moneyOtherInput.value.trim();
+            if (otherText) {
+                // Remove the placeholder 'Other_Money' option
+                Array.from(moneySelect.options).find(opt => opt.value === 'Other_Money').remove();
+                // Add the custom text as a new option that will be submitted
+                const newOption = new Option(otherText, otherText, true, true);
+                moneySelect.add(newOption);
+            }
+        }
+        
+        // The form submission will now include all selected options, including any custom ones added above.
+    });
+
+    // --- Re-population Logic (to restore state from session/flash) ---
+    // This ensures that if the user hits 'Back' or an error occurs, their custom text remains selected.
+    const storedUserRoles = "{{ user_role_segment | default('') }}".split(', ');
+    const storedMoneyModels = "{{ monetization_model | default('') }}".split(', ');
+    
+    storedUserRoles.forEach(val => {
+        const option = userSelect.querySelector(`option[value="${val}"]`);
+        if (option && option.value !== 'Other_User') {
+            option.selected = true;
+        } else if (val && val !== 'Other_User') {
+            // Handle case where custom text was previously entered and saved in session
+            const newOption = new Option(val, val, true, true);
+            userSelect.add(newOption);
+        }
+    });
+
+    storedMoneyModels.forEach(val => {
+        const option = moneySelect.querySelector(`option[value="${val}"]`);
+        if (option && option.value !== 'Other_Money') {
+            option.selected = true;
+        } else if (val && val !== 'Other_Money') {
+            // Handle case where custom text was previously entered and saved in session
+            const newOption = new Option(val, val, true, true);
+            moneySelect.add(newOption);
+        }
+    });
+    
+    // Re-check state after re-population
+    handleOther(userSelect, userOtherInput);
+    handleOther(moneySelect, moneyOtherInput);
+});
+</script>
+
 {% endblock %}
