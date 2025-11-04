@@ -65,10 +65,9 @@
 
           <!-- “Other” input field (hidden until selected) -->
           <div id="otherFeatureDiv" class="mt-2" style="display:none;">
-            <input type="text" id="otherFeatureInput" class="form-control" placeholder="Type your custom feature here">
+            <input type="text" id="otherFeatureInput" class="form-control" name="otherFeatureInput" placeholder="Type your custom feature here">
           </div>
         </div>
-
       </div>
 
       <!-- Target Countries -->
@@ -99,10 +98,7 @@
       </div>
     </div>
   </form>
-  
 </div>
-<!-- session['target_countries'] = ', '.join(request.form.getlist('target_countries'))
-session['other_feature'] = request.form.get('otherFeatureInput', '') -->
 
 <script>
 document.addEventListener("DOMContentLoaded", function() {
