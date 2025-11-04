@@ -9,25 +9,21 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT
 from datetime import datetime
 
-# Paths - Assuming LOGO_PATH is accessible relative to where the app is run (e.g., Render root)
+# Paths
+# NOTE: Removed hardcoded /mnt/data path for better portability, assuming LOGO_PATH is correct
+# based on your environment or the image is optional.
 LOGO_PATH = os.path.join(os.getcwd(), "VMAI_Logos-new.PNG") 
 REPORTS_DIR = os.path.join(os.getcwd(), "reports")
 os.makedirs(REPORTS_DIR, exist_ok=True)
-
-# --- THEME COLORS INTEGRATION ---
-PRIMARY_COLOR = colors.HexColor("#1b33a9")   # Your Primary: #1b33a9 (Blue)
-SECONDARY_COLOR = colors.HexColor("#46c55a") # Your Secondary: #46c55a (Green)
-# ---------------------------------
 
 
 def _style_sheet():
     """Reusable styles for text elements"""
     styles = getSampleStyleSheet()
-    # Updated to use theme colors
     styles.add(ParagraphStyle(name="TitleBig", fontSize=20, leading=22, alignment=TA_LEFT,
-                              textColor=PRIMARY_COLOR, spaceAfter=6))
+                              textColor=colors.HexColor("#0d6efd"), spaceAfter=6))
     styles.add(ParagraphStyle(name="Section", fontSize=13, leading=16, alignment=TA_LEFT,
-                              textColor=PRIMARY_COLOR, spaceBefore=10, spaceAfter=4))
+                              textColor=colors.HexColor("#0d6efd"), spaceBefore=10, spaceAfter=4))
     styles.add(ParagraphStyle(name="NormalLeft", fontSize=10.5, leading=14, alignment=TA_LEFT))
     styles.add(ParagraphStyle(name="Muted", fontSize=9, leading=11, alignment=TA_LEFT,
                               textColor=colors.HexColor("#6c757d")))
@@ -52,19 +48,16 @@ def generate_pdf_report(user_email: str, ai_result: dict):
     styles = _style_sheet()
     flow = []
     
-    # --- CRITICAL FIX: Robust Data Extraction ---
-    # Assume 'ai_result' contains the top-level data sent from Flask route, 
-    # but check for the nested 'summary' key as a fallback.
-    summary_data = ai_result.get("summary", ai_result) # Use ai_result itself as fallback!
+    # --- GET SUMMARY DATA SAFELY (CRITICAL FIX) ---
+    # Since summary is now a top-level key containing the scorecard and swot
+    summary_data = ai_result.get("summary", {}) 
     
-    # Extract data defensively, checking common casing variations
+    # Extract data using the correct nested path
+    # Use .get() defensively against both 'scorecard' and 'Scorecard' 
     scorecard = summary_data.get("scorecard", summary_data.get("Scorecard"))
     swot = summary_data.get("swot", summary_data.get("Swot")) 
     overview = summary_data.get("overview")
-    recs = summary_data.get("recommendations", ai_result.get("suggestions", [])) # Check root for suggestions too
-
-    verdict = ai_result.get("verdict") or "No Verdict"
-    ai_score = ai_result.get("ai_score", "—")
+    recs = summary_data.get("recommendations")
 
 
     # Header section (Logo + Title)
@@ -73,8 +66,7 @@ def generate_pdf_report(user_email: str, ai_result: dict):
             img = Image(LOGO_PATH, width=110, height=30, kind="proportional")
             img.hAlign = "LEFT"
             flow.append(img)
-        except Exception as e:
-            print(f"Error loading logo image: {e}")
+        except Exception:
             pass
 
     flow.append(Spacer(1, 4))
@@ -90,9 +82,8 @@ def generate_pdf_report(user_email: str, ai_result: dict):
     ]
     meta_tbl = Table(meta_table_data, colWidths=[260, 160])
     meta_tbl.setStyle(TableStyle([
-        # Using PRIMARY_COLOR for the highlight box background
-        ("BACKGROUND", (0, 0), (-1, -1), PRIMARY_COLOR.alpha(0.1)), 
-        ("BOX", (0, 0), (-1, -1), 0.5, PRIMARY_COLOR),
+        ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#e7f1ff")),
+        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#0d6efd")),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("LEFTPADDING", (0, 0), (-1, -1), 6),
     ]))
@@ -100,6 +91,9 @@ def generate_pdf_report(user_email: str, ai_result: dict):
     flow.append(Spacer(1, 12))
 
     # Verdict
+    verdict = ai_result.get("verdict") or "No Verdict"
+    ai_score = ai_result.get("ai_score", "—")
+
     flow.append(Paragraph("Overall Verdict", styles["Section"]))
     flow.append(Paragraph(f"<b>{verdict}</b>", styles["NormalLeft"]))
     flow.append(Spacer(1, 6))
@@ -114,28 +108,29 @@ def generate_pdf_report(user_email: str, ai_result: dict):
         flow.append(Spacer(1, 10))
 
     # Suggestions
-    if recs and isinstance(recs, list): # Check if it's a list
+    suggestions = ai_result.get("suggestions", [])
+    if suggestions:
         flow.append(Paragraph("Suggestions", styles["Section"]))
-        rows = [[Paragraph(f"• {s}", styles["NormalLeft"])] for s in recs]
+        rows = [[Paragraph(f"• {s}", styles["NormalLeft"])] for s in suggestions]
         tbl = Table(rows, colWidths=[420])
         tbl.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), colors.whitesmoke),
             ("ROWBACKGROUNDS", (0, 0), (-1, -1),
              [colors.HexColor("#f8fbff"), colors.HexColor("#eef5ff")]),
-            # Using a lighter shade of SECONDARY_COLOR for the border
-            ("BOX", (0, 0), (-1, -1), 0.25, SECONDARY_COLOR.alpha(0.5)), 
+            ("BOX", (0, 0), (-1, -1), 0.25, colors.HexColor("#bcd0f7")),
             ("LEFTPADDING", (0, 0), (-1, -1), 6),
         ]))
         flow.append(tbl)
         flow.append(Spacer(1, 12))
 
     # Scorecard
+    # scorecard variable is now correctly extracted from summary_data
     if isinstance(scorecard, dict) and scorecard:
         flow.append(Paragraph("Scorecard", styles["Section"]))
         rows = [["Metric", "Score"]] + [[k, str(v)] for k, v in scorecard.items()]
         tbl = Table(rows, colWidths=[220, 70])
         tbl.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), PRIMARY_COLOR), # Header background is PRIMARY_COLOR
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0d6efd")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
             ("GRID", (0, 0), (-1, -1), 0.3, colors.HexColor("#d0e2ff")),
             ("ROWBACKGROUNDS", (0, 1), (-1, -1),
@@ -146,35 +141,49 @@ def generate_pdf_report(user_email: str, ai_result: dict):
         flow.append(Spacer(1, 12))
 
     # SWOT
-    if isinstance(swot, dict) and any(swot.get(k) for k in ("Strengths", "Weaknesses", "Opportunities", "Threats", "strengths", "weaknesses", "opportunities", "threats")):
+    # swot variable is now correctly extracted from summary_data
+    if isinstance(swot, dict) and any(swot.get(k) for k in ("Strengths", "Weaknesses", "Opportunities", "Threats")):
         flow.append(Paragraph("SWOT Analysis", styles["Section"]))
-        
-        # Map keys to colors (we'll use green for positive/neutral, blue for negative/positive)
-        sw_colors_map = {
-            "Strengths": SECONDARY_COLOR, "Opportunities": SECONDARY_COLOR,
-            "Weaknesses": PRIMARY_COLOR, "Threats": PRIMARY_COLOR,
-            "strengths": SECONDARY_COLOR, "opportunities": SECONDARY_COLOR,
-            "weaknesses": PRIMARY_COLOR, "threats": PRIMARY_COLOR
+        sw_colors = {
+            # Note: We are using capitalized keys for display here, which is fine
+            "Strengths": "#0d6efd",
+            "Weaknesses": "#198754",
+            "Opportunities": "#0d6efd",
+            "Threats": "#198754"
         }
         
-        # Check for both capitalized and lowercase keys
+        # Check both capitalized and lowercase keys for robustness, matching gemini_api.py
         swot_keys_to_check = ["Strengths", "Weaknesses", "Opportunities", "Threats"]
         
         for key in swot_keys_to_check:
+            # Check for capitalized key first, then lowercase key
             items = swot.get(key, swot.get(key.lower(), []))
             
             if items:
-                color = sw_colors_map.get(key, PRIMARY_COLOR)
-                flow.append(Paragraph(f"<b><font color='{color.hexa()}'>{key}</font></b>", styles["NormalLeft"]))
+                flow.append(Paragraph(f"<b><font color='{sw_colors[key]}'>{key}</font></b>", styles["NormalLeft"]))
                 sw_rows = [[Paragraph(f"• {i}", styles["NormalLeft"])] for i in items]
                 tbl = Table(sw_rows, colWidths=[440])
                 tbl.setStyle(TableStyle([
-                    ("BOX", (0, 0), (-1, -1), 0.25, color.alpha(0.5)),
+                    ("BOX", (0, 0), (-1, -1), 0.25, colors.HexColor("#bcd0f7")),
                     ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f8fbff")),
                     ("LEFTPADDING", (0, 0), (-1, -1), 6),
                 ]))
                 flow.append(tbl)
                 flow.append(Spacer(1, 8))
+
+    # Recommendations
+    # recs variable is now correctly extracted from summary_data
+    if recs:
+        flow.append(Paragraph("Recommendations", styles["Section"]))
+        rec_rows = [[Paragraph(f"• {r}", styles["NormalLeft"])] for r in recs]
+        tbl = Table(rec_rows, colWidths=[440])
+        tbl.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f1fdf6")),
+            ("BOX", (0, 0), (-1, -1), 0.25, colors.HexColor("#198754")),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+        ]))
+        flow.append(tbl)
+        flow.append(Spacer(1, 10))
 
     # Footer
     flow.append(Spacer(1, 24))
