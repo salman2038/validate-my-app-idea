@@ -1,116 +1,150 @@
-# app.py — PostgreSQL / psycopg2 version (full, all routes preserved)
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
-import os, json, psycopg2
-from psycopg2.extras import RealDictCursor
+import sqlite3, os, json
 from dotenv import load_dotenv
 from datetime import datetime
 from functools import wraps
 
 # Ensure the reports directory exists
 os.makedirs("reports", exist_ok=True)
-load_dotenv()
 
-# Project logic utilities
+# Your project logic utilities (must exist)
 from logic.score_engine import calculate_complexity, calculate_financial_viability
 from logic.gemini_api import call_gemini
 
-# Optional PDF generator helpers
+# Optional PDF generator helpers you wrote
+# logic/pdf_generator.py should provide generate_pdf(...) or generate_pdf_report(...)
 try:
     from logic.pdf_generator import generate_pdf_report, generate_pdf
 except Exception:
     generate_pdf = None
     generate_pdf_report = None
 
-# Google OAuth libs
+# Google OAuth libs (used for "Login with Google")
 from google_auth_oauthlib.flow import Flow
 import google.auth.transport.requests
 from google.oauth2 import id_token
 
 # ---------- App init ----------
 app = Flask(__name__)
+load_dotenv()
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "your_secret_key")
+DB_NAME = "datarector.db"
 
-# DB config — expects full DATABASE_URL like: postgres://user:pass@host:port/dbname
-DATABASE_URL = os.getenv("DATABASE_URL")
-if not DATABASE_URL:
-    # Don't crash in local dev if you still want to use a local SQLite file — but user requested PG migration,
-    # so require DATABASE_URL in production/deploy.
-    raise RuntimeError("DATABASE_URL environment variable is required for PostgreSQL migration.")
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+# For local development
+os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 
-def get_db_connection():
-    # return a new connection; use RealDictCursor where convenient
-    conn = psycopg2.connect(DATABASE_URL)
-    return conn
+# Ensure reports folder
+os.makedirs("reports", exist_ok=True)
 
-# ---------- DB creation / migrations ----------
+# ---------- DB: base creation + migrations ----------
 def init_db():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS phase2_inputs (
-            id SERIAL PRIMARY KEY,
-            user_email TEXT,
-            core_problem_statement TEXT,
-            user_role_segment TEXT,
-            monetization_model TEXT,
-            current_solution_inefficiency TEXT,
-            unique_value_proposition TEXT,
-            primary_competitors_text TEXT,
-            must_have_features_list TEXT,
-            arpu_estimate_usd REAL,
-            acquisition_goal_3mo INTEGER,
-            monthly_opex_est_usd REAL,
-            dev_budget_range TEXT,
-            external_integrations_list TEXT,
-            client_post_launch_fear TEXT,
-            client_critical_question TEXT,
-            complexity_score REAL,
-            financial_score REAL,
-            ai_verdict TEXT,
-            ai_score REAL,
-            ai_suggestions TEXT,
-            ai_summary TEXT,
-            target_countries TEXT,
-            submitter_name TEXT,
-            submitter_email TEXT,
-            submitter_phone TEXT,
-            report_file TEXT,
-            created_at TEXT
-        );
-    """)
+    """Create the primary table (phase2_inputs) if missing."""
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS phase2_inputs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_email TEXT,
+        core_problem_statement TEXT,
+        user_role_segment TEXT,
+        monetization_model TEXT,
+        current_solution_inefficiency TEXT,
+        unique_value_proposition TEXT,
+        primary_competitors_text TEXT,
+        must_have_features_list TEXT,
+        arpu_estimate_usd REAL,
+        acquisition_goal_3mo INTEGER,
+        monthly_opex_est_usd REAL,
+        dev_budget_range TEXT,
+        external_integrations_list TEXT,
+        client_post_launch_fear TEXT,
+        client_critical_question TEXT,
+        complexity_score REAL,
+        financial_score REAL,
+        ai_verdict TEXT,
+        ai_score REAL,
+        ai_suggestions TEXT,
+        ai_summary TEXT
+    )''')
     conn.commit()
-    cur.close()
     conn.close()
 
 def init_user_table():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            email TEXT UNIQUE,
-            password TEXT,
-            role TEXT DEFAULT 'user',
-            name TEXT,
-            phone TEXT,
-            address TEXT,
-            picture TEXT
-        );
-    """)
-    # ensure default admin exists
-    cur.execute("SELECT id FROM users WHERE email=%s", ('admin@app.com',))
-    if not cur.fetchone():
+    """Create users table and default admin (if missing)."""
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE,
+        password TEXT,
+        role TEXT DEFAULT 'user',
+        name TEXT,
+        phone TEXT,
+        address TEXT,
+        picture TEXT
+    )''')
+    # Default admin (only if not present)
+    c.execute("SELECT * FROM users WHERE email=?", ('admin@app.com',))
+    if not c.fetchone():
         hashed_pw = generate_password_hash("admin123")
-        cur.execute("INSERT INTO users (email, password, role) VALUES (%s, %s, %s)",
-                    ('admin@app.com', hashed_pw, 'admin'))
+        c.execute("INSERT INTO users (email, password, role) VALUES (?, ?, ?)",
+                  ('admin@app.com', hashed_pw, 'admin'))
     conn.commit()
-    cur.close()
     conn.close()
 
-# Run initial creation
+def auto_migrate_phase2():
+    """Add missing columns to phase2_inputs without deleting data."""
+    expected = [
+        ("target_countries", "TEXT"),
+        ("submitter_name", "TEXT"),
+        ("submitter_email", "TEXT"),
+        ("submitter_phone", "TEXT"),
+        ("report_file", "TEXT"),
+        ("created_at", "TEXT")
+    ]
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("PRAGMA table_info(phase2_inputs)")
+    existing = [r[1] for r in c.fetchall()]
+    for col, typ in expected:
+        if col not in existing:
+            try:
+                c.execute(f"ALTER TABLE phase2_inputs ADD COLUMN {col} {typ}")
+                print(f"✅ Added missing column to phase2_inputs: {col}")
+            except Exception as e:
+                print(f"⚠️ Could not add {col}: {e}")
+    conn.commit()
+    conn.close()
+
+def auto_migrate_users_table():
+    """Add missing columns to users table."""
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("PRAGMA table_info(users)")
+    existing_cols = [r[1] for r in c.fetchall()]
+    new_columns = [
+        ("name", "TEXT"),
+        ("phone", "TEXT"),
+        ("address", "TEXT"),
+        ("picture", "TEXT")
+    ]
+    for col, col_type in new_columns:
+        if col not in existing_cols:
+            try:
+                c.execute(f"ALTER TABLE users ADD COLUMN {col} {col_type}")
+                print(f"✅ Added {col} column to users table.")
+            except Exception as e:
+                print(f"⚠️ Could not add users.{col}: {e}")
+    conn.commit()
+    conn.close()
+
+# initialize DBs and migrations
 init_db()
 init_user_table()
+auto_migrate_phase2()
+auto_migrate_users_table()
 
 # ---------- Helpers ----------
 def get_session_value(key):
@@ -132,6 +166,11 @@ def admin_required(f):
         return f(*args, **kwargs)
     return wrapper
 
+def get_db_connection():
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    return conn
+
 # ---------- Auth: Signup / Local Login ----------
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
@@ -144,17 +183,15 @@ def signup():
         if password != confirm:
             return render_template("signup.html", error="Passwords do not match.")
         hashed_pw = generate_password_hash(password)
-        conn = get_db_connection()
-        cur = conn.cursor()
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
         try:
-            cur.execute("INSERT INTO users (email, password, role) VALUES (%s, %s, %s)",
-                        (email, hashed_pw, "user"))
+            c.execute("INSERT INTO users (email, password, role) VALUES (?, ?, ?)",
+                      (email, hashed_pw, "user"))
             conn.commit()
-        except psycopg2.IntegrityError:
-            conn.rollback()
+        except sqlite3.IntegrityError:
             conn.close()
             return render_template("signup.html", error="Email already exists.")
-        cur.close()
         conn.close()
         flash("Account created. Please log in.", "success")
         return redirect(url_for("login"))
@@ -166,11 +203,10 @@ def login():
     if request.method == "POST":
         email = request.form.get("email")
         password = request.form.get("password")
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT password, role, name FROM users WHERE email=%s", (email,))
-        row = cur.fetchone()
-        cur.close()
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("SELECT password, role, name FROM users WHERE email = ?", (email,))
+        row = c.fetchone()
         conn.close()
         if row:
             stored_password, role, name = row[0], row[1], row[2]
@@ -187,15 +223,10 @@ def login():
     return render_template("login.html")
 
 # ---------- Google OAuth routes ----------
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-# For local development allow insecure transport — on production Render you won't need this.
-os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
-
 @app.route("/login/google")
 def login_google():
     if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
-        flash("Google OAuth not configured (set GOOGLE_CLIENT_ID/SECRET in environment).", "warning")
+        flash("Google OAuth not configured (set GOOGLE_CLIENT_ID/SECRET in .env).", "warning")
         return redirect(url_for("login"))
 
     flow = Flow.from_client_config(
@@ -247,14 +278,13 @@ def login_callback():
         session["user_name"] = user_name
         session["user_picture"] = user_picture
         # Create local DB record if missing
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT id FROM users WHERE email=%s", (user_email,))
-        if not cur.fetchone():
-            cur.execute("INSERT INTO users (email, name, role, picture) VALUES (%s, %s, %s, %s)",
-                        (user_email, user_name or "", "user", user_picture or ""))
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("SELECT id FROM users WHERE email = ?", (user_email,))
+        if not c.fetchone():
+            c.execute("INSERT INTO users (email, name, role, picture) VALUES (?, ?, ?, ?)",
+                      (user_email, user_name or "", "user", user_picture or ""))
             conn.commit()
-        cur.close()
         conn.close()
         return redirect(url_for("step1"))
     except Exception as e:
@@ -276,20 +306,19 @@ def dashboard():
 @app.route("/admin/dashboard")
 @admin_required
 def admin_dashboard():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM users")
-    total_users = cur.fetchone()[0] or 0
-    cur.execute("SELECT COUNT(*) FROM phase2_inputs")
-    total_reports = cur.fetchone()[0] or 0
-    cur.execute("""
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM users")
+    total_users = c.fetchone()[0] or 0
+    c.execute("SELECT COUNT(*) FROM phase2_inputs")
+    total_reports = c.fetchone()[0] or 0
+    c.execute("""
         SELECT p.id, p.user_email, p.core_problem_statement, p.ai_verdict, p.ai_score, p.created_at, u.name
         FROM phase2_inputs p
         LEFT JOIN users u ON p.user_email = u.email
         ORDER BY p.id DESC LIMIT 5
     """)
-    recent = cur.fetchall()
-    cur.close()
+    recent = c.fetchall()
     conn.close()
     recent_list = []
     for r in recent:
@@ -314,24 +343,23 @@ def admin_dashboard():
 def admin_users():
     q = request.args.get("q", "").strip()
     role_filter = request.args.get("role", "").strip()
-    conn = get_db_connection()
-    cur = conn.cursor()
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
     base_sql = "SELECT id, email, role, name, phone, address, picture FROM users"
     conditions = []
     params = []
     if q:
         likeq = f"%{q}%"
-        conditions.append("(email ILIKE %s OR name ILIKE %s OR phone ILIKE %s)")
+        conditions.append("(email LIKE ? OR name LIKE ? OR phone LIKE ?)")
         params += [likeq, likeq, likeq]
     if role_filter:
-        conditions.append("role = %s")
+        conditions.append("role = ?")
         params.append(role_filter)
     if conditions:
         base_sql += " WHERE " + " AND ".join(conditions)
     base_sql += " ORDER BY id DESC"
-    cur.execute(base_sql, params)
-    users = cur.fetchall()
-    cur.close()
+    c.execute(base_sql, params)
+    users = c.fetchall()
     conn.close()
     return render_template("admin_users.html", users=users, q=q, role_filter=role_filter, title="Manage Users")
 
@@ -341,8 +369,8 @@ def admin_users():
 def admin_reports():
     user_filter = request.args.get("user", "").strip()
     verdict_filter = request.args.get("verdict", "").strip()
-    conn = get_db_connection()
-    cur = conn.cursor()
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
     sql = """
         SELECT p.id, p.user_email, u.name, p.submitter_name, p.submitter_email, p.submitter_phone,
                p.target_countries, p.core_problem_statement, p.monetization_model,
@@ -354,17 +382,16 @@ def admin_reports():
     params = []
     if user_filter:
         likeu = f"%{user_filter}%"
-        conditions.append("(p.user_email ILIKE %s OR u.name ILIKE %s OR p.submitter_name ILIKE %s)")
+        conditions.append("(p.user_email LIKE ? OR u.name LIKE ? OR p.submitter_name LIKE ?)")
         params += [likeu, likeu, likeu]
     if verdict_filter:
-        conditions.append("p.ai_verdict = %s")
+        conditions.append("p.ai_verdict = ?")
         params.append(verdict_filter)
     if conditions:
         sql += " WHERE " + " AND ".join(conditions)
     sql += " ORDER BY p.id DESC"
-    cur.execute(sql, params)
-    rows = cur.fetchall()
-    cur.close()
+    c.execute(sql, params)
+    rows = c.fetchall()
     conn.close()
     submissions = []
     for r in rows:
@@ -391,11 +418,10 @@ def admin_reports():
 @app.route("/admin/delete_user/<int:user_id>", methods=["POST", "GET"])
 @admin_required
 def admin_delete_user(user_id):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM users WHERE id = %s AND role != 'admin'", (user_id,))
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("DELETE FROM users WHERE id = ? AND role != 'admin'", (user_id,))
     conn.commit()
-    cur.close()
     conn.close()
     flash("User deleted", "success")
     return redirect(url_for("admin_users"))
@@ -404,10 +430,10 @@ def admin_delete_user(user_id):
 @app.route("/admin/delete_submission/<int:submission_id>", methods=["POST", "GET"])
 @admin_required
 def admin_delete_submission(submission_id):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT report_file FROM phase2_inputs WHERE id=%s", (submission_id,))
-    row = cur.fetchone()
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT report_file FROM phase2_inputs WHERE id=?", (submission_id,))
+    row = c.fetchone()
     if row and row[0]:
         file_path = os.path.join(os.getcwd(), "reports", os.path.basename(row[0]))
         try:
@@ -415,9 +441,8 @@ def admin_delete_submission(submission_id):
                 os.remove(file_path)
         except Exception:
             pass
-    cur.execute("DELETE FROM phase2_inputs WHERE id=%s", (submission_id,))
+    c.execute("DELETE FROM phase2_inputs WHERE id=?", (submission_id,))
     conn.commit()
-    cur.close()
     conn.close()
     flash("Submission deleted", "success")
     return redirect(url_for("admin_reports"))
@@ -428,31 +453,29 @@ def admin_delete_submission(submission_id):
 @app.route("/admin/regenerate_report/<int:report_id>", methods=["POST"])
 @admin_required
 def regenerate_report(report_id):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM phase2_inputs WHERE id=%s", (report_id,))
-    row = cur.fetchone()
+    """Re-generate the PDF + AI evaluation for a submission"""
+    # Removed redundant imports; rely on global imports
+
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT * FROM phase2_inputs WHERE id=?", (report_id,))
+    row = c.fetchone()
     if not row:
-        cur.close(); conn.close()
         flash("Report not found", "danger")
         return redirect(url_for("admin_reports"))
 
-    # map column names to values — use RealDictCursor if you need column names; here we re-query with RealDictCursor
-    cur.close(); conn.close()
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT * FROM phase2_inputs WHERE id=%s", (report_id,))
-    data = cur.fetchone()
-    cur.close()
-    conn.close()
+    # Convert row tuple to dictionary
+    cols = [d[0] for d in c.description]
+    data = dict(zip(cols, row))
+    conn.close() # Close DB connection early
 
     # Prepare inputs for AI call
-    ai_input_data = {k: data.get(k, '') for k in data.keys() if k not in ['id', 'created_at', 'report_file']}
-
+    ai_input_data = {k: data.get(k, '') for k in data if k not in ['id', 'created_at', 'report_file']}
+    
     # Run Validation first
     from logic.validation import validate_app_idea
     is_valid, reason = validate_app_idea(ai_input_data)
-
+    
     if not is_valid:
         flash(f"❌ Cannot regenerate: Submission data failed validation: {reason}", "danger")
         return redirect(url_for("admin_reports"))
@@ -465,11 +488,12 @@ def regenerate_report(report_id):
         flash("⚠️ AI failed to respond during regeneration.", "warning")
         ai_result = {"verdict": "Error", "ai_score": None, "suggestions": [], "summary": {}}
 
-    # Generate filename & PDF
+    # Correct consistent filename
     safe_user = (data.get("submitter_email") or data.get("user_email") or "user").split("@")[0]
     file_name = f"report_{safe_user}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
     file_path = os.path.join("reports", file_name)
 
+    # Generate PDF and save in reports folder
     if generate_pdf:
         try:
             generate_pdf({
@@ -486,13 +510,14 @@ def regenerate_report(report_id):
             print("PDF regeneration error:", e)
             flash("⚠️ PDF generation failed during regeneration.", "warning")
 
-    # Save updates
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("""
+
+    # Save only filename (not full path)
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("""
         UPDATE phase2_inputs
-        SET ai_verdict=%s, ai_score=%s, ai_suggestions=%s, ai_summary=%s, report_file=%s, created_at=%s
-        WHERE id=%s
+        SET ai_verdict=?, ai_score=?, ai_suggestions=?, ai_summary=?, report_file=?, created_at=?
+        WHERE id=?
     """, (
         ai_result.get("verdict"),
         ai_result.get("ai_score"),
@@ -503,11 +528,11 @@ def regenerate_report(report_id):
         report_id
     ))
     conn.commit()
-    cur.close()
     conn.close()
 
     flash("✅ Report regenerated successfully!", "success")
     return redirect(url_for("admin_report_detail", report_id=report_id))
+
 
 # Admin - update user
 @app.route("/admin/update_user", methods=["POST"])
@@ -518,15 +543,14 @@ def admin_update_user():
     phone = request.form.get("phone")
     address = request.form.get("address")
     role = request.form.get("role", "user")
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("""
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("""
         UPDATE users
-        SET name = %s, phone = %s, address = %s, role = %s
-        WHERE id = %s
+        SET name = ?, phone = ?, address = ?, role = ?
+        WHERE id = ?
     """, (name, phone, address, role, user_id))
     conn.commit()
-    cur.close()
     conn.close()
     flash("User updated", "success")
     return redirect(url_for("admin_users"))
@@ -535,47 +559,44 @@ def admin_update_user():
 @app.route("/admin/report_detail/<int:report_id>")
 @admin_required
 def admin_report_detail(report_id):
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT * FROM phase2_inputs WHERE id=%s", (report_id,))
-    report = cur.fetchone()
-    cur.close()
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("SELECT * FROM phase2_inputs WHERE id=?", (report_id,))
+    report = c.fetchone()
     conn.close()
 
     if not report:
         flash("Report not found.", "danger")
         return redirect(url_for("admin_reports"))
-
-    # Parse JSON fields
+    
+    # Convert complex JSON fields back to Python objects
     try:
-        summary = json.loads(report["ai_summary"]) if report.get("ai_summary") else {}
+        summary = json.loads(report["ai_summary"])
     except (json.JSONDecodeError, TypeError):
         summary = {"Summary Error": "Could not parse AI Summary."}
-
+    
     try:
-        suggestions = json.loads(report["ai_suggestions"]) if report.get("ai_suggestions") else []
+        suggestions = json.loads(report["ai_suggestions"])
     except (json.JSONDecodeError, TypeError):
         suggestions = []
 
-    # Get all columns for display
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT column_name FROM information_schema.columns
-        WHERE table_name = 'phase2_inputs'
-        ORDER BY ordinal_position
-    """)
-    cols = [r[0] for r in cur.fetchall()]
-    cur.close()
+    # Get the original column names for displaying input fields
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("PRAGMA table_info(phase2_inputs)")
+    cols = [r[1] for r in c.fetchall()]
     conn.close()
 
+    # Filter inputs for display
     display_inputs = {}
     for col in cols:
+        # Exclude internal/output fields
         if col not in ["id", "user_email", "complexity_score", "financial_score", "ai_verdict", "ai_score", "ai_suggestions", "ai_summary", "report_file", "created_at"]:
-            display_inputs[col.replace('_', ' ').title()] = report.get(col)
+             display_inputs[col.replace('_', ' ').title()] = report[col]
 
-    return render_template("admin_report_detail.html",
-                           report=report,
+    return render_template("admin_report_detail.html", 
+                           report=report, 
                            summary=summary,
                            suggestions=suggestions,
                            inputs=display_inputs,
@@ -616,7 +637,9 @@ def step2():
         session['current_solution_inefficiency'] = request.form.get('current_solution_inefficiency', '')
         session['unique_value_proposition'] = request.form.get('unique_value_proposition', '')
         session['primary_competitors_text'] = request.form.get('primary_competitors_text', '')
+        # features may come from multi-select; append "Other" hidden value if present
         selected_features = request.form.getlist('must_have_features_list')
+        # if a separate single hidden field (other) exists, the template appended it with same name
         session['must_have_features_list'] = ', '.join(selected_features)
         session['target_countries'] = ', '.join(request.form.getlist('target_countries'))
         if not session['unique_value_proposition'] or not session['primary_competitors_text']:
@@ -659,20 +682,18 @@ def step3():
         complexity_score = calculate_complexity(session.get('must_have_features_list', ''), session.get('external_integrations_list', ''))
         financial_score = calculate_financial_viability(session.get('arpu_estimate_usd', ''), session.get('acquisition_goal_3mo', ''), session.get('monthly_opex_est_usd', ''))
 
-        # persist submission — use RETURNING id to capture submission_id
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute('''INSERT INTO phase2_inputs (
+        # persist submission
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute('''INSERT INTO phase2_inputs (
             user_email, core_problem_statement, user_role_segment, monetization_model,
             current_solution_inefficiency, unique_value_proposition, primary_competitors_text,
             must_have_features_list, arpu_estimate_usd, acquisition_goal_3mo,
             monthly_opex_est_usd, dev_budget_range, external_integrations_list,
             client_post_launch_fear, client_critical_question,
             complexity_score, financial_score,
-            target_countries, submitter_name, submitter_email, submitter_phone, created_at
-        ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-        RETURNING id
-        ''', (
+            target_countries, submitter_name, submitter_email, submitter_phone
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', (
             session.get('user_email'),
             session.get('core_problem_statement'),
             session.get('user_role_segment'),
@@ -693,15 +714,15 @@ def step3():
             session.get('target_countries'),
             session.get('submitter_name'),
             session.get('submitter_email'),
-            session.get('submitter_phone'),
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            session.get('submitter_phone')
         ))
-        submission_id = cur.fetchone()[0]
+        # --- FIX: Capture the ID of the newly inserted row safely ---
+        submission_id = c.lastrowid
         conn.commit()
-        cur.close()
+        # Do NOT close connection yet, but we can if we open a new one later. Let's close it here for cleaner separation.
         conn.close()
 
-        # Prepare user inputs dict
+        # Prepare user inputs once
         user_inputs = {k: session.get(k, '') for k in [
             "core_problem_statement", "user_role_segment", "monetization_model",
             "current_solution_inefficiency", "unique_value_proposition", "primary_competitors_text",
@@ -715,17 +736,17 @@ def step3():
         is_valid, reason = validate_app_idea(user_inputs)
         if not is_valid:
             # Update DB with error status
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute('UPDATE phase2_inputs SET ai_verdict=%s, created_at=%s WHERE id=%s',
-                        ("❌ Invalid Submission", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), submission_id))
+            conn = sqlite3.connect(DB_NAME)
+            c = conn.cursor()
+            c.execute('UPDATE phase2_inputs SET ai_verdict = ?, created_at = ? WHERE id = ?',
+                      ("❌ Invalid Submission", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), submission_id))
             conn.commit()
-            cur.close()
             conn.close()
-            # Keep login info only
+            # Clear session data except login info
             keep = {k: session.get(k) for k in ["user_email", "role", "user_name", "user_picture"]}
             session.clear()
             session.update({k: v for k, v in keep.items() if v})
+            
             return render_template(
                 'result.html',
                 verdict="❌ Invalid Submission",
@@ -734,14 +755,14 @@ def step3():
                 suggestions=[]
             )
 
-        # Call Gemini AI
+        # Call Gemini AI safely
         try:
             ai_result = call_gemini(user_inputs)
         except Exception as e:
             print("Gemini call error:", e)
             ai_result = {"verdict": "Error", "ai_score": None, "suggestions": [], "summary": {}}
 
-        # Generate PDF & save
+        # Generate PDF
         file_name = f"report_{(session.get('submitter_email') or session.get('user_email') or 'user').split('@')[0]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         file_path = os.path.join("reports", file_name)
         try:
@@ -762,22 +783,25 @@ def step3():
                 file_name = os.path.basename(pdf_path)
             else:
                 with open(file_path, "wb") as f:
-                    f.write(b"")
+                    f.write(b"") # Write empty file if no generator is available
         except Exception as e:
             print("PDF generation error:", e)
+            # Ensure an empty file exists if PDF generation fails completely
             try:
-                with open(file_path, "wb") as f:
-                    f.write(b"")
+                   with open(file_path, "wb") as f:
+                     f.write(b"")
             except Exception:
                 pass
 
-        # Update DB with AI results
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute('''
+
+        # Update DB with AI results using the correct submission_id
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute('''
             UPDATE phase2_inputs
-            SET ai_verdict=%s, ai_score=%s, ai_suggestions=%s, ai_summary=%s, report_file=%s, created_at=%s
-            WHERE id=%s
+            SET ai_verdict = ?, ai_score = ?, ai_suggestions = ?, ai_summary = ?,
+                 report_file = ?, created_at = ?
+            WHERE id = ?
         ''', (
             ai_result.get("verdict"),
             ai_result.get("ai_score"),
@@ -785,56 +809,53 @@ def step3():
             json.dumps(ai_result.get("summary", {})),
             file_name,
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            submission_id
+            submission_id # FIX: Use the securely captured submission_id
         ))
         conn.commit()
-        cur.close()
         conn.close()
-
+        
         # Keep login session
         keep = {k: session.get(k) for k in ["user_email", "role", "user_name", "user_picture"]}
         session.clear()
         session.update({k: v for k, v in keep.items() if v})
 
-        # Render results
+        # Show AI results
         return render_template('result.html',
                                verdict=ai_result.get("verdict"),
                                ai_score=ai_result.get("ai_score"),
                                suggestions=ai_result.get("suggestions", []),
                                summary=ai_result.get("summary", {}))
 
-    # GET — prefill
+    # GET request for step 3
+    # Pre-fill contact details from user session if available
     default_name = session.get("user_name", "")
     default_email = session.get("user_email", "")
+
     return render_template('step3.html',
-                           active_step=3,
+                           active_step=3, 
                            show_stepper=True,
                            default_name=default_name,
-                           default_email=default_email)
+                           default_email=default_email) 
 
 # ---------- Reports (user) ----------
 @app.route("/reports")
 @login_required
 def reports():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("""SELECT id, ai_verdict, ai_score, report_file, created_at, core_problem_statement
-                   FROM phase2_inputs
-                   WHERE submitter_email = %s OR user_email = %s
-                   ORDER BY id DESC""", (session.get("user_email"), session.get("user_email")))
-    rows = cur.fetchall()
-    cur.close()
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    # Fetch reports where the logged-in user is the original user OR the submitter
+    c.execute("SELECT id, ai_verdict, ai_score, report_file, created_at, core_problem_statement FROM phase2_inputs WHERE submitter_email = ? OR user_email = ? ORDER BY id DESC", (session.get("user_email"), session.get("user_email")))
+    rows = c.fetchall()
     conn.close()
     reports_data = []
     for r in rows:
-        created = r[4]
-        created_fmt = created.split('.')[0] if created else "N/A"
         reports_data.append({
             "id": r[0],
             "ai_verdict": r[1],
             "ai_score": r[2],
             "report_file": r[3],
-            "created_at": created_fmt,
+            # Safely format timestamp
+            "created_at": r[4].split('.')[0] if r[4] else "N/A", 
             "core_problem_statement": r[5]
         })
     return render_template("reports.html", reports=reports_data, title="My Reports")
@@ -843,104 +864,94 @@ def reports():
 @app.route("/report/<int:report_id>")
 @login_required
 def report_detail(report_id):
-    conn = get_db_connection()
-    cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT * FROM phase2_inputs WHERE id=%s AND (user_email=%s OR submitter_email=%s)",
-                (report_id, session.get("user_email"), session.get("user_email")))
-    report = cur.fetchone()
-    cur.close()
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    # Ensure the user owns the report (by original user_email or submitter_email)
+    c.execute("SELECT * FROM phase2_inputs WHERE id=? AND (user_email=? OR submitter_email=?)", 
+              (report_id, session.get("user_email"), session.get("user_email")))
+    report = c.fetchone()
     conn.close()
 
     if not report:
         flash("Report not found or unauthorized.", "danger")
         return redirect(url_for("reports"))
 
-    # Parse JSON fields
+    # Convert complex JSON fields back to Python objects
     try:
-        summary = json.loads(report.get("ai_summary") or "{}")
-    except Exception:
+        summary = json.loads(report["ai_summary"])
+    except (json.JSONDecodeError, TypeError):
         summary = {"Summary Error": "Could not parse AI Summary."}
+    
     try:
-        suggestions = json.loads(report.get("ai_suggestions") or "[]")
-    except Exception:
+        suggestions = json.loads(report["ai_suggestions"])
+    except (json.JSONDecodeError, TypeError):
         suggestions = []
 
-    # Get columns for display
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("""
-        SELECT column_name FROM information_schema.columns
-        WHERE table_name = 'phase2_inputs'
-        ORDER BY ordinal_position
-    """)
-    cols = [r[0] for r in cur.fetchall()]
-    cur.close()
+    # Get the original column names for displaying input fields
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("PRAGMA table_info(phase2_inputs)")
+    cols = [r[1] for r in c.fetchall()]
     conn.close()
 
+    # Filter and format inputs for display
     display_inputs = {}
     for col in cols:
+        # Exclude internal/output fields
         if col not in ["id", "user_email", "complexity_score", "financial_score", "ai_verdict", "ai_score", "ai_suggestions", "ai_summary", "report_file", "created_at"]:
-            display_inputs[col.replace('_', ' ').title()] = report.get(col)
+             display_inputs[col.replace('_', ' ').title()] = report[col]
 
-    return render_template("report_detail.html",
-                           report=report,
+
+    return render_template("report_detail.html", 
+                           report=report, 
                            summary=summary,
                            suggestions=suggestions,
                            inputs=display_inputs,
                            title=f"Report #{report_id} Detail")
 
+
 # ---------- Secure Report Download ----------
 @app.route("/download_report/<path:filename>")
 @login_required
 def download_report(filename):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT id FROM phase2_inputs WHERE report_file=%s AND (user_email=%s OR submitter_email=%s)",
-                (filename, session.get("user_email"), session.get("user_email")))
-    is_user_report = cur.fetchone()
-    cur.close()
+    """Securely serve a report file if the user owns it or is an admin."""
+    # Check if the file is associated with the current user (security)
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    # Check both user_email and submitter_email
+    c.execute("SELECT id FROM phase2_inputs WHERE report_file=? AND (user_email=? OR submitter_email=?)", 
+              (filename, session.get("user_email"), session.get("user_email")))
+    is_user_report = c.fetchone()
     conn.close()
 
+    # If the user is authorized (is the owner OR is an admin)
     if is_user_report or session.get("role") == "admin":
+        # We use os.path.basename(filename) to prevent directory traversal attacks
         safe_filename = os.path.basename(filename)
         file_path = os.path.join(os.getcwd(), "reports", safe_filename)
+        
         if os.path.exists(file_path):
             return send_file(file_path, as_attachment=True, download_name=safe_filename)
         else:
             flash(f"Report file '{safe_filename}' not found on server.", "danger")
-            return redirect(url_for("reports"))
+            return redirect(url_for("reports")) 
     else:
         flash("You are not authorized to download this report.", "danger")
         return redirect(url_for("reports"))
 
-# ---------- Dev: reset DB (admin only) ----------
-@app.route("/reset-db")
-@admin_required
-def reset_db():
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("DROP TABLE IF EXISTS phase2_inputs")
-    conn.commit()
-    cur.close()
-    conn.close()
-    init_db()
-    flash("Database reset and migrated.", "success")
-    return redirect(url_for("admin_dashboard"))
-
-# ---------- Run (local dev) ----------
 if __name__ == '__main__':
-    # Optionally insert dummy data if table is empty (useful for local testing)
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM phase2_inputs")
-    count = cur.fetchone()[0]
-    if count == 0:
+    # Add dummy inputs for testing purposes if the database is empty
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute("SELECT COUNT(*) FROM phase2_inputs")
+    if c.fetchone()[0] == 0:
         try:
-            from logic.dummy_data import insert_dummy_data
-            insert_dummy_data(conn)  # note: your dummy helper must work with psycopg2 connection
-            print("✅ Inserted dummy data for testing.")
-        except Exception:
-            print("⚠️ Could not insert dummy data. Continue without it.")
-    cur.close()
+             from logic.dummy_data import insert_dummy_data
+             insert_dummy_data(conn)
+             print("✅ Inserted dummy data for testing.")
+        except ImportError:
+            print("⚠️ Could not import logic.dummy_data. Run the app without dummy data.")
     conn.close()
+    # Run the application
     app.run(debug=True)
