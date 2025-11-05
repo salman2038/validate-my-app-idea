@@ -13,7 +13,7 @@ from datetime import datetime
 # NOTE: Removed hardcoded /mnt/data path for better portability, assuming LOGO_PATH is correct
 # based on your environment or the image is optional.
 LOGO_PATH = os.path.join(os.getcwd(), "VMAI_Logos-new.PNG") 
-REPORTS_DIR = os.path.join(os.getcwd(), "reports")
+REPORTS_DIR = "/opt/render/project/src/data/reports"
 os.makedirs(REPORTS_DIR, exist_ok=True)
 
 

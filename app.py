@@ -958,7 +958,7 @@ def download_report(filename):
     if is_user_report or session.get("role") == "admin":
         # We use os.path.basename(filename) to prevent directory traversal attacks
         safe_filename = os.path.basename(filename)
-        file_path = os.path.join(os.getcwd(), "reports", safe_filename)
+        file_path = os.path.join("/opt/render/project/src/data/reports", safe_filename)
         
         if os.path.exists(file_path):
             return send_file(file_path, as_attachment=True, download_name=safe_filename)
@@ -987,7 +987,7 @@ def test_db():
     except Exception as e:
         return f"❌ Database connection failed:<br>{e}"
     
-    
+
 if __name__ == '__main__':
     # Add dummy inputs for testing purposes if the database is empty
     conn = sqlite3.connect(DB_NAME)
