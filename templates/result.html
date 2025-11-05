@@ -12,6 +12,13 @@
             font-size: 1.5rem;
             font-weight: bold;
         }
+        .muted-box {
+            background: #f9f9f9;
+            border: 1px dashed #ccc;
+            padding: 1rem;
+            border-radius: 8px;
+            color: #555;
+        }
     </style>
 </head>
 <body class="bg-light p-5">
@@ -27,21 +34,20 @@
             <p class="score-box">AI Score: <strong>{{ ai_score | default('N/A') }} / 100</strong></p>
         </div>
 
-        {% if summary.error %}
-            <h3>🛑 Validation Failure/Error:</h3>
+        {% if summary and summary.get('error') %}
+            <h3>🛑 Validation Failure / Error</h3>
             <div class="alert alert-danger">
-                <p><strong>Reason:</strong> {{ summary.error }}</p>
-                <p>Please review your inputs. The AI evaluation was skipped due to this error.</p>
+                <p><strong>Reason:</strong> {{ summary.get('error') }}</p>
+                <p>Please review your inputs. The AI evaluation was skipped or failed due to this error.</p>
             </div>
         {% endif %}
 
+        <!-- SCORECARD -->
         <h3>📊 Scorecard</h3>
-        {% set scorecard = summary.get('scorecard', summary.get('Scorecard', {})) %}
+        {% set scorecard = (summary.get('scorecard') if summary else None) or (summary.get('Scorecard') if summary else None) or {} %}
         {% if scorecard %}
             <table class="table table-bordered">
-                <thead>
-                    <tr><th>Factor</th><th>Score (1-10)</th></tr>
-                </thead>
+                <thead><tr><th>Factor</th><th>Score (1-10)</th></tr></thead>
                 <tbody>
                     {% for key, value in scorecard.items() %}
                         <tr><td>{{ key }}</td><td>{{ value }}</td></tr>
@@ -49,12 +55,13 @@
                 </tbody>
             </table>
         {% else %}
-            <p class="text-muted">Scorecard data is unavailable. (Check API response structure: looking for 'scorecard' or 'Scorecard' keys in summary.)</p>
+            <div class="muted-box">Scorecard data is unavailable. (No 'scorecard' or 'Scorecard' keys found in summary.)</div>
         {% endif %}
 
+        <!-- SWOT -->
         <div class="mt-5">
             <h3>💡 SWOT Analysis</h3>
-            {% set swot_data = summary.get('swot', summary.get('Swot', {})) %}
+            {% set swot_data = (summary.get('swot') if summary else None) or (summary.get('Swot') if summary else None) or {} %}
             {% if swot_data %}
                 <table class="table table-striped">
                     <thead>
@@ -62,7 +69,6 @@
                     </thead>
                     <tbody>
                         <tr>
-                            {# Check for capitalized or lowercase internal keys #}
                             <td><ul>{% for s in swot_data.get('Strengths', swot_data.get('strengths', [])) %}<li>{{ s }}</li>{% endfor %}</ul></td>
                             <td><ul>{% for w in swot_data.get('Weaknesses', swot_data.get('weaknesses', [])) %}<li>{{ w }}</li>{% endfor %}</ul></td>
                             <td><ul>{% for o in swot_data.get('Opportunities', swot_data.get('opportunities', [])) %}<li>{{ o }}</li>{% endfor %}</ul></td>
@@ -71,28 +77,31 @@
                     </tbody>
                 </table>
             {% else %}
-                <p class="text-muted">SWOT Analysis data is unavailable. (Check API response structure: looking for 'swot' or 'Swot' keys in summary.)</p>
+                <div class="muted-box">SWOT Analysis data is unavailable. (No 'swot' or 'Swot' keys found in summary.)</div>
             {% endif %}
         </div>
-        
-        {% if suggestions %}
-            <div class="mt-5">
-                <h3>🚀 Next Steps & Suggestions</h3>
+
+        <!-- SUGGESTIONS -->
+        <div class="mt-5">
+            <h3>🚀 Next Steps & Suggestions</h3>
+            {% if suggestions %}
                 <ul class="list-group mb-4">
                     {% for s in suggestions %}
                         <li class="list-group-item">{{ s }}</li>
                     {% endfor %}
                 </ul>
-            </div>
-        {% endif %}
+            {% else %}
+                <div class="muted-box">No suggestions available for this evaluation.</div>
+            {% endif %}
+        </div>
 
+        <!-- ACTION BUTTONS -->
         <div class="text-center mt-4">
             <a href="{{ url_for('reports') }}" class="btn btn-primary">View All Reports</a>
             {% if submission_id and report_file %}
                 <a href="{{ url_for('download_report', filename=report_file) }}" class="btn btn-success">Download PDF Report</a>
             {% endif %}
         </div>
-        
     </div>
 </body>
 </html>

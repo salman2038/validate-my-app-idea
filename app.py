@@ -603,6 +603,7 @@ def admin_report_detail(report_id):
                            title=f"Admin: Report #{report_id}")
 
 # ---------- Multi-step form routes ----------
+# ---------- Multi-step form routes ----------
 @app.route("/")
 def index():
     if "user_email" not in session:
@@ -613,16 +614,52 @@ def index():
 @login_required
 def step1():
     if request.method == "POST":
+        # Capture custom text inputs for User Roles and Monetization
+        custom_user_role = request.form.get('user_role_segment_other', '').strip()
+        custom_money_model = request.form.get('monetization_model_other', '').strip()
+        
+        # Get all selected list values (which may include 'Other_User' or 'Other_Money' placeholders)
+        selected_user_roles = request.form.getlist('user_role_segment')
+        selected_money_models = request.form.getlist('monetization_model')
+        
+        final_user_roles = []
+        final_money_models = []
+
+        # 1. Process User Roles
+        if 'Other_User' in selected_user_roles and custom_user_role:
+            # If 'Other_User' was selected AND custom text was provided, add the custom text
+            selected_user_roles.remove('Other_User')
+            selected_user_roles.append(custom_user_role)
+        
+        # Filter out the placeholder itself if it was selected but no custom text was entered
+        final_user_roles = [role for role in selected_user_roles if role != 'Other_User']
+        
+        # 2. Process Monetization Models
+        if 'Other_Money' in selected_money_models and custom_money_model:
+            # If 'Other_Money' was selected AND custom text was provided, add the custom text
+            selected_money_models.remove('Other_Money')
+            selected_money_models.append(custom_money_model)
+        
+        # Filter out the placeholder itself if it was selected but no custom text was entered
+        final_money_models = [model for model in selected_money_models if model != 'Other_Money']
+
+
+        # Update session with processed, combined lists
         session['core_problem_statement'] = request.form.get('core_problem_statement', '')
-        session['user_role_segment'] = ', '.join(request.form.getlist('user_role_segment'))
-        session['monetization_model'] = ', '.join(request.form.getlist('monetization_model'))
+        session['user_role_segment'] = ', '.join(final_user_roles)
+        session['monetization_model'] = ', '.join(final_money_models)
+
+        # Validation Check
         if not session['core_problem_statement'] or not session['user_role_segment'] or not session['monetization_model']:
-            return render_template('step1.html', error="Please fill all fields before continuing.",
+            return render_template('step1.html', error="Please fill all required fields before continuing.",
                                    core_problem_statement=session.get('core_problem_statement', ''),
+                                   # Pass back current values to repopulate form fields (including custom text if needed)
                                    user_role_segment=session.get('user_role_segment', ''),
                                    monetization_model=session.get('monetization_model', ''),
                                    active_step=1, show_stepper=True)
         return redirect(url_for("step2"))
+        
+    # GET logic remains the same
     return render_template('step1.html',
                            active_step=1,
                            core_problem_statement=get_session_value('core_problem_statement'),
@@ -656,6 +693,8 @@ def step2():
                            target_countries=get_session_value('target_countries'),
                            show_stepper=True)
 
+import time
+
 @app.route("/step3", methods=["GET", "POST"])
 @login_required
 def step3():
@@ -673,16 +712,16 @@ def step3():
         session['client_post_launch_fear'] = request.form.get('client_post_launch_fear', '')
         session['client_critical_question'] = request.form.get('client_critical_question', '')
 
-        # validate required financials
+        # validate required fields
         if not session['arpu_estimate_usd'] or not session['acquisition_goal_3mo'] or not session['monthly_opex_est_usd']:
             return render_template('step3.html', error="Please complete all required fields before submitting.",
                                    active_step=3, show_stepper=True)
 
-        # compute scores
+        # compute local scores
         complexity_score = calculate_complexity(session.get('must_have_features_list', ''), session.get('external_integrations_list', ''))
         financial_score = calculate_financial_viability(session.get('arpu_estimate_usd', ''), session.get('acquisition_goal_3mo', ''), session.get('monthly_opex_est_usd', ''))
 
-        # persist submission
+        # save to DB (initial record)
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
         c.execute('''INSERT INTO phase2_inputs (
@@ -716,13 +755,11 @@ def step3():
             session.get('submitter_email'),
             session.get('submitter_phone')
         ))
-        # --- FIX: Capture the ID of the newly inserted row safely ---
         submission_id = c.lastrowid
         conn.commit()
-        # Do NOT close connection yet, but we can if we open a new one later. Let's close it here for cleaner separation.
         conn.close()
 
-        # Prepare user inputs once
+        # prepare inputs for AI
         user_inputs = {k: session.get(k, '') for k in [
             "core_problem_statement", "user_role_segment", "monetization_model",
             "current_solution_inefficiency", "unique_value_proposition", "primary_competitors_text",
@@ -731,38 +768,42 @@ def step3():
             "client_post_launch_fear", "client_critical_question"
         ]}
 
-        # Validate
+        # validate locally first
         from logic.validation import validate_app_idea
         is_valid, reason = validate_app_idea(user_inputs)
         if not is_valid:
-            # Update DB with error status
             conn = sqlite3.connect(DB_NAME)
             c = conn.cursor()
-            c.execute('UPDATE phase2_inputs SET ai_verdict = ?, created_at = ? WHERE id = ?',
+            c.execute('UPDATE phase2_inputs SET ai_verdict=?, created_at=? WHERE id=?',
                       ("❌ Invalid Submission", datetime.now().strftime("%Y-%m-%d %H:%M:%S"), submission_id))
             conn.commit()
             conn.close()
-            # Clear session data except login info
-            keep = {k: session.get(k) for k in ["user_email", "role", "user_name", "user_picture"]}
-            session.clear()
-            session.update({k: v for k, v in keep.items() if v})
-            
-            return render_template(
-                'result.html',
-                verdict="❌ Invalid Submission",
-                ai_score=0,
-                summary={"error": reason},
-                suggestions=[]
-            )
+            return render_template("result.html", verdict="❌ Invalid Submission", ai_score=0,
+                                   summary={"error": reason}, suggestions=[])
 
-        # Call Gemini AI safely
-        try:
-            ai_result = call_gemini(user_inputs)
-        except Exception as e:
-            print("Gemini call error:", e)
-            ai_result = {"verdict": "Error", "ai_score": None, "suggestions": [], "summary": {}}
+        # --- SAFER GEMINI CALL (with retry) ---
+        from logic.gemini_api import call_gemini
+        ai_result = None
+        for attempt in range(3):
+            try:
+                ai_result = call_gemini(user_inputs)
+                if ai_result and "error" not in ai_result:
+                    break  # success
+                print(f"⚠️ Gemini attempt {attempt+1} failed: {ai_result.get('error')}")
+            except Exception as e:
+                print(f"⚠️ Gemini attempt {attempt+1} raised: {e}")
+            time.sleep(1)  # wait 1s before retry
 
-        # Generate PDF
+        # if all attempts failed
+        if not ai_result or "error" in ai_result:
+            ai_result = {
+                "verdict": "Error",
+                "ai_score": 0,
+                "suggestions": ["AI model was unavailable. Please try again later."],
+                "summary": {"error": ai_result.get("error", "Gemini API unavailable")}
+            }
+
+        # --- Generate PDF ---
         file_name = f"report_{(session.get('submitter_email') or session.get('user_email') or 'user').split('@')[0]}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         file_path = os.path.join("reports", file_name)
         try:
@@ -781,27 +822,16 @@ def step3():
                 pdf_path = generate_pdf_report(session.get("submitter_email") or session.get("user_email"), ai_result)
                 file_path = pdf_path
                 file_name = os.path.basename(pdf_path)
-            else:
-                with open(file_path, "wb") as f:
-                    f.write(b"") # Write empty file if no generator is available
         except Exception as e:
-            print("PDF generation error:", e)
-            # Ensure an empty file exists if PDF generation fails completely
-            try:
-                   with open(file_path, "wb") as f:
-                     f.write(b"")
-            except Exception:
-                pass
+            print("⚠️ PDF generation error:", e)
 
-
-        # Update DB with AI results using the correct submission_id
+        # --- Update DB with AI results ---
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
         c.execute('''
             UPDATE phase2_inputs
-            SET ai_verdict = ?, ai_score = ?, ai_suggestions = ?, ai_summary = ?,
-                 report_file = ?, created_at = ?
-            WHERE id = ?
+            SET ai_verdict=?, ai_score=?, ai_suggestions=?, ai_summary=?, report_file=?, created_at=?
+            WHERE id=?
         ''', (
             ai_result.get("verdict"),
             ai_result.get("ai_score"),
@@ -809,33 +839,25 @@ def step3():
             json.dumps(ai_result.get("summary", {})),
             file_name,
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            submission_id # FIX: Use the securely captured submission_id
+            submission_id
         ))
         conn.commit()
         conn.close()
-        
-        # Keep login session
-        keep = {k: session.get(k) for k in ["user_email", "role", "user_name", "user_picture"]}
-        session.clear()
-        session.update({k: v for k, v in keep.items() if v})
 
-        # Show AI results
-        return render_template('result.html',
-                               verdict=ai_result.get("verdict"),
-                               ai_score=ai_result.get("ai_score"),
-                               suggestions=ai_result.get("suggestions", []),
-                               summary=ai_result.get("summary", {}))
+        # ✅ Always return a valid result.html
+        return render_template(
+            "result.html",
+            verdict=ai_result.get("verdict", "Unknown"),
+            ai_score=ai_result.get("ai_score", 0),
+            summary=ai_result.get("summary", {}),
+            suggestions=ai_result.get("suggestions", [])
+        )
 
-    # GET request for step 3
-    # Pre-fill contact details from user session if available
+    # GET request — show Step 3 form
     default_name = session.get("user_name", "")
     default_email = session.get("user_email", "")
+    return render_template("step3.html", active_step=3, show_stepper=True, default_name=default_name, default_email=default_email)
 
-    return render_template('step3.html',
-                           active_step=3, 
-                           show_stepper=True,
-                           default_name=default_name,
-                           default_email=default_email) 
 
 # ---------- Reports (user) ----------
 @app.route("/reports")
