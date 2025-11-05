@@ -29,7 +29,14 @@ from google.oauth2 import id_token
 app = Flask(__name__)
 load_dotenv()
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "your_secret_key")
-DB_NAME = "datarector.db"
+# DB_NAME = "datarector.db"
+import os
+
+# Create persistent data folder if it doesn’t exist
+os.makedirs("/opt/render/project/src/data", exist_ok=True)
+
+# Persistent SQLite path on Render
+DB_NAME = "/opt/render/project/src/data/app_database.sqlite3"
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
@@ -961,7 +968,26 @@ def download_report(filename):
     else:
         flash("You are not authorized to download this report.", "danger")
         return redirect(url_for("reports"))
+        
 
+# ✅ Move this OUTSIDE the above function
+@app.route("/test_db")
+def test_db():
+    try:
+        conn = sqlite3.connect(DB_NAME)
+        c = conn.cursor()
+        c.execute("CREATE TABLE IF NOT EXISTS test_table (id INTEGER PRIMARY KEY, name TEXT)")
+        conn.commit()
+        c.execute("INSERT INTO test_table (name) VALUES ('DB connected successfully')")
+        conn.commit()
+        c.execute("SELECT COUNT(*) FROM test_table")
+        count = c.fetchone()[0]
+        conn.close()
+        return f"✅ Database is connected successfully! File: {DB_NAME}<br>Total test rows: {count}"
+    except Exception as e:
+        return f"❌ Database connection failed:<br>{e}"
+    
+    
 if __name__ == '__main__':
     # Add dummy inputs for testing purposes if the database is empty
     conn = sqlite3.connect(DB_NAME)
