@@ -195,6 +195,7 @@ def generate_pdf_report(user_email: str, ai_result: dict):
         ("ALIGN", (0, 0), (-1, -1), "CENTER")
     ]))
     flow.append(footer)
-
+    print(f"🧾 Generating PDF at: {output_path}")
+    print(f"🧾 Directory exists: {os.path.exists(REPORTS_DIR)}")
     doc.build(flow)
     return output_path
