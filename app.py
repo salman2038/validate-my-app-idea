@@ -37,6 +37,8 @@ os.makedirs("/opt/render/project/src/data", exist_ok=True)
 
 # Persistent SQLite path on Render
 DB_NAME = "/opt/render/project/src/data/app_database.sqlite3"
+REPORTS_DIR = "/opt/render/project/src/data/reports"
+os.makedirs(REPORTS_DIR, exist_ok=True)
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
@@ -941,9 +943,70 @@ def report_detail(report_id):
 
 
 # ---------- Secure Report Download ----------
+# ---------- Secure Report Download (robust) ----------
 @app.route("/download_report/<path:filename>")
 @login_required
 def download_report(filename):
+    """
+    Try multiple likely locations for report files and return the first found file.
+    If not found, show a helpful error and log the attempted paths.
+    """
+    import stat
+
+    # 1) Check DB ownership quickly (same check you had)
+    conn = sqlite3.connect(DB_NAME)
+    c = conn.cursor()
+    c.execute(
+        "SELECT id FROM phase2_inputs WHERE report_file=? AND (user_email=? OR submitter_email=?)",
+        (filename, session.get("user_email"), session.get("user_email"))
+    )
+    is_user_report = c.fetchone()
+    conn.close()
+
+    if not (is_user_report or session.get("role") == "admin"):
+        flash("You are not authorized to download this report.", "danger")
+        return redirect(url_for("reports"))
+
+    # 2) Candidate paths (try multiple to handle inconsistencies)
+    cand_dirs = [
+        "/opt/render/project/src/data/reports",     # preferred persistent path
+        os.path.join(os.getcwd(), "reports"),       # older path used on some deploys
+        os.path.join(os.getcwd(), "data", "reports"),
+        os.path.join(os.getcwd(), "static", "reports")
+    ]
+    safe_filename = os.path.basename(filename)
+    tried = []
+    found_path = None
+
+    for d in cand_dirs:
+        p = os.path.join(d, safe_filename)
+        tried.append(p)
+        if os.path.exists(p) and os.path.isfile(p):
+            # additional sanity: ensure file size > 0
+            try:
+                if os.path.getsize(p) > 0:
+                    found_path = p
+                    break
+            except Exception:
+                # still accept zero-size if exists
+                found_path = p
+                break
+
+    # 3) If found, send_file
+    if found_path:
+        app.logger.info(f"[download_report] Serving file {found_path} for user {session.get('user_email')}")
+        try:
+            # make file readable
+            os.chmod(found_path, 0o644)
+        except Exception:
+            pass
+        return send_file(found_path, as_attachment=True, download_name=safe_filename)
+
+    # 4) Not found -> log details and return helpful message
+    app.logger.error(f"[download_report] File not found for {filename}. Paths tried: {tried}")
+    flash(f"Report file '{safe_filename}' not found on server. Paths tried (check logs): {len(tried)}", "danger")
+    return redirect(url_for("reports"))
+
     """Securely serve a report file if the user owns it or is an admin."""
     # Check if the file is associated with the current user (security)
     conn = sqlite3.connect(DB_NAME)
@@ -969,24 +1032,33 @@ def download_report(filename):
         flash("You are not authorized to download this report.", "danger")
         return redirect(url_for("reports"))
         
+@app.route("/debug_list_reports")
+@admin_required
+def debug_list_reports():
+    """Quick debug: list files in the candidate reports directories (for admin only)."""
+    cand_dirs = [
+        "/opt/render/project/src/data/reports",
+        os.path.join(os.getcwd(), "reports"),
+        os.path.join(os.getcwd(), "data", "reports"),
+        os.path.join(os.getcwd(), "static", "reports")
+    ]
+    output = {}
+    for d in cand_dirs:
+        try:
+            files = []
+            if os.path.exists(d) and os.path.isdir(d):
+                for fn in os.listdir(d):
+                    full = os.path.join(d, fn)
+                    files.append({
+                        "name": fn,
+                        "size": os.path.getsize(full),
+                        "mtime": datetime.fromtimestamp(os.path.getmtime(full)).isoformat()
+                    })
+            output[d] = files
+        except Exception as e:
+            output[d] = f"ERROR: {e}"
+    return {"reports_dirs": output}
 
-# ✅ Move this OUTSIDE the above function
-@app.route("/test_db")
-def test_db():
-    try:
-        conn = sqlite3.connect(DB_NAME)
-        c = conn.cursor()
-        c.execute("CREATE TABLE IF NOT EXISTS test_table (id INTEGER PRIMARY KEY, name TEXT)")
-        conn.commit()
-        c.execute("INSERT INTO test_table (name) VALUES ('DB connected successfully')")
-        conn.commit()
-        c.execute("SELECT COUNT(*) FROM test_table")
-        count = c.fetchone()[0]
-        conn.close()
-        return f"✅ Database is connected successfully! File: {DB_NAME}<br>Total test rows: {count}"
-    except Exception as e:
-        return f"❌ Database connection failed:<br>{e}"
-    
 
 if __name__ == '__main__':
     # Add dummy inputs for testing purposes if the database is empty
