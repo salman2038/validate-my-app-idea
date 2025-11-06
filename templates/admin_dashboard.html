@@ -4,24 +4,26 @@
   <h3 class="mb-4">👑 Admin Dashboard</h3>
 
   <div class="row mb-4">
-    <div class="col-md-4">
+    <div class="col-md-3">
       <div class="card p-3 shadow-sm">
         <h5>Total Users</h5>
         <h2 class="text-primary">{{ total_users }}</h2>
       </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-3">
       <div class="card p-3 shadow-sm">
         <h5>Total Reports</h5>
         <h2 class="text-primary">{{ total_reports }}</h2>
       </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-md-6">
       <div class="card p-3 shadow-sm">
         <h5>Quick Actions</h5>
         <div class="d-flex gap-2">
           <a href="{{ url_for('admin_users') }}" class="btn btn-outline-primary">Manage Users</a>
           <a href="{{ url_for('admin_reports') }}" class="btn btn-outline-secondary">View Reports</a>
+          <a href="{{ url_for('admin_submissions') }}" class="btn btn-outline-secondary">View Submissions</a>
+
         </div>
       </div>
     </div>

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card shadow-sm p-4">
+  <h3 class="text-primary mb-3">
+    🧾 Admin: Report #{{ report['id'] }}
+  </h3>
+
+  <div class="mb-3">
+    <p><strong>User:</strong> {{ report['user_email'] or report['submitter_email'] }}</p>
+    <p><strong>Submitted on:</strong> {{ report['created_at'] or "N/A" }}</p>
+    <p><strong>Verdict:</strong> 
+      <span class="badge 
+        {% if report['ai_verdict'] == 'Strong Potential' %}bg-success
+        {% elif 'Invalid' in report['ai_verdict'] %}bg-danger
+        {% else %}bg-warning text-dark{% endif %}">
+        {{ report['ai_verdict'] or "N/A" }}
+      </span>
+    </p>
+    <p><strong>AI Score:</strong> {{ report['ai_score'] or "N/A" }}</p>
+  </div>
+
+  {% if summary %}
+  <h5 class="text-secondary mt-4">📊 AI Summary</h5>
+  <pre class="bg-light p-3 rounded">{{ summary | tojson(indent=2) }}</pre>
+  {% endif %}
+
+  {% if suggestions %}
+  <h5 class="text-secondary mt-4">🚀 AI Suggestions</h5>
+  <ul class="list-group mb-3">
+    {% for s in suggestions %}
+      <li class="list-group-item">{{ s }}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% if inputs %}
+  <h5 class="text-secondary mt-4">🧩 User Inputs (Steps 1–3)</h5>
+  <div class="table-responsive">
+    <table class="table table-bordered">
+      <thead class="table-light">
+        <tr>
+          <th>Field</th>
+          <th>Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for key, val in inputs.items() %}
+          <tr>
+            <td>{{ key }}</td>
+            <td>{{ val or "-" }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <div class="text-center mt-4">
+    <a href="{{ url_for('download_report', filename=report['report_file']) }}" class="btn btn-outline-success">
+      ⬇ Download PDF Report
+    </a>
+    <a href="{{ url_for('admin_submissions') }}" class="btn btn-secondary">⬅ Back to Submissions</a>
+  </div>
+</div>
+{% endblock %}
