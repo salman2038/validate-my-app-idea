@@ -37,7 +37,7 @@
         <td>{{ s['ai_score'] or "—" }}</td>
         <td>{{ s['created_at'] or "N/A" }}</td>
         <td>
-          <a href="{{ url_for('report_detail', report_id=s['id']) }}" class="btn btn-sm btn-outline-primary">
+          <a href="{{ url_for('admin_report_detail', report_id=s['id']) }}" class="btn btn-sm btn-outline-primary">
             View Details
           </a>
         </td>
