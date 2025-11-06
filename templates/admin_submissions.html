@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card shadow-sm p-4">
+  <h4 class="mb-4 text-primary">📋 All User Submissions</h4>
+
+  {% if submissions %}
+  <table class="table table-bordered table-hover align-middle">
+    <thead class="table-light">
+      <tr>
+        <th>#</th>
+        <th>User</th>
+        <th>Email</th>
+        <th>Problem Statement</th>
+        <th>Monetization</th>
+        <th>Verdict</th>
+        <th>AI Score</th>
+        <th>Date</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in submissions %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ s['submitter_name'] or "N/A" }}</td>
+        <td>{{ s['submitter_email'] or s['user_email'] or "N/A" }}</td>
+        <td>{{ s['core_problem_statement'][:60] ~ '...' if s['core_problem_statement']|length > 60 else s['core_problem_statement'] }}</td>
+        <td>{{ s['monetization_model'] or "—" }}</td>
+        <td>
+          <span class="badge 
+            {% if s['ai_verdict'] == 'Strong Potential' %}bg-success
+            {% elif 'Invalid' in s['ai_verdict'] %}bg-danger
+            {% else %}bg-warning text-dark{% endif %}">
+            {{ s['ai_verdict'] or "Pending" }}
+          </span>
+        </td>
+        <td>{{ s['ai_score'] or "—" }}</td>
+        <td>{{ s['created_at'] or "N/A" }}</td>
+        <td>
+          <a href="{{ url_for('report_detail', report_id=s['id']) }}" class="btn btn-sm btn-outline-primary">
+            View Details
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="text-center py-5">
+    <p class="text-muted">No submissions found yet.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

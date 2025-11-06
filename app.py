@@ -956,6 +956,28 @@ def debug_list_reports():
     files = os.listdir(reports_dir)
     return f"📁 Found {len(files)} files:<br>" + "<br>".join(files)
 
+# ---------- Admin: View All Submissions ----------
+@app.route("/admin/submissions")
+@login_required
+def admin_submissions():
+    if session.get("role") != "admin":
+        flash("Unauthorized access.", "danger")
+        return redirect(url_for("dashboard"))
+
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute("""
+        SELECT id, submitter_name, submitter_email, user_email,
+               core_problem_statement, monetization_model,
+               ai_verdict, ai_score, created_at
+        FROM phase2_inputs
+        ORDER BY id DESC
+    """)
+    rows = c.fetchall()
+    conn.close()
+
+    return render_template("admin_submissions.html", submissions=rows, title="All User Submissions")
 
 if __name__ == '__main__':
     # Add dummy inputs for testing purposes if the database is empty
