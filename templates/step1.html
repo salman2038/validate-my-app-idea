@@ -1,34 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<!-- <style>
-    /* Simple style for the stepper if you choose to uncomment it later */
-    .step { display: flex; align-items: center; }
-    .circle { 
-        width: 30px; height: 30px; border-radius: 50%; background-color: #ccc; 
-        display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; margin-right: 8px;
-    }
-    .step.active .circle { background-color: #1b33a9; } /* Using Primary Color */
-    .step.completed .circle { background-color: #46c55a; } /* Using Secondary Color */
-    .step small { font-size: 0.85rem; }
-</style> -->
-
 <h4 class="mb-4 text-center" style="color: #1b33a9;">Step 1 — App Overview</h4>
-
-<!-- Stepper (Uncommented for reference, adjust styling if needed) -->
-<!-- <div class="stepper mb-4">
-  <div class="step {% if active_step == 1 %}active{% elif active_step > 1 %}completed{% endif %}">
-    <div class="circle">1</div>
-    <small>Overview</small>
-  </div>
-  <div class="step {% if active_step == 2 %}active{% elif active_step > 2 %}completed{% endif %}">
-    <div class="circle">2</div>
-    <small>Competitors</small>
-  </div>
-  <div class="step {% if active_step == 3 %}active{% endif %}">
-    <div class="circle">3</div>
-    <small>Financial</small>
-  </div>
-</div> -->
 
 <form method="POST" class="needs-validation bg-white p-4 rounded shadow-sm" novalidate>
   
@@ -37,145 +9,140 @@
     <label for="core_problem" class="form-label fw-semibold">What problem does your app solve?</label>
     <textarea name="core_problem_statement" id="core_problem" class="form-control" rows="3" required
       placeholder="Example: Small shop owners struggle to track daily sales and expenses efficiently.">{{ core_problem_statement }}</textarea>
-    <div class="form-text">Be as specific as possible about the pain point.</div>
+    <div class="form-text">Be specific about the pain point your app addresses.</div>
   </div>
 
   <!-- 2. Who are your main users? -->
   <div class="mb-4">
     <label class="form-label fw-semibold">Who are your main users? (Select all that apply)</label>
     <select name="user_role_segment" id="user_role_segment" class="form-select multi-select" multiple required>
-      <option value="Students">Students</option>
-      <option value="Small Business Owners">Small Business Owners (SMB)</option>
-      <option value="Freelancers/Contractors">Freelancers/Contractors</option>
-      <option value="Mid-Market/Enterprise">Mid-Market/Enterprise</option>
-      <option value="General Consumers">General Consumers (B2C)</option>
-      <option value="Developers/Technical Users">Developers/Technical Users</option>
-      <option value="Non-Profit/Government">Non-Profit/Government</option>
+      <optgroup label="Individuals / Consumers">
+        <option value="Students">Students</option>
+        <option value="Teachers/Educators">Teachers / Educators</option>
+        <option value="Parents">Parents</option>
+        <option value="Job Seekers">Job Seekers</option>
+        <option value="Gamers">Gamers</option>
+        <option value="Fitness Enthusiasts">Fitness Enthusiasts</option>
+        <option value="Travelers">Travelers</option>
+        <option value="Content Creators">Content Creators / Influencers</option>
+        <option value="General Consumers">General Consumers (B2C)</option>
+      </optgroup>
+
+      <optgroup label="Businesses / Organizations">
+        <option value="Small Business Owners">Small Business Owners (SMB)</option>
+        <option value="Startups">Startups</option>
+        <option value="Freelancers/Contractors">Freelancers / Independent Professionals</option>
+        <option value="Mid-Market Companies">Mid-Market Companies</option>
+        <option value="Enterprises">Enterprises / Corporates</option>
+        <option value="Agencies">Marketing / Design / Tech Agencies</option>
+        <option value="E-Commerce Stores">E-Commerce Stores</option>
+        <option value="Healthcare Providers">Healthcare / Clinics</option>
+        <option value="Educational Institutions">Schools / Universities</option>
+        <option value="Non-Profit/Government">Non-Profit / Government</option>
+        <option value="Developers/Technical Users">Developers / Technical Users</option>
+      </optgroup>
+
       <option value="Other_User">Other...</option>
     </select>
-    <!-- Input to capture custom text when "Other" is selected -->
-    <input type="text" name="user_role_segment_other" id="user_role_segment_other" 
-           class="form-control mt-2 d-none" placeholder="Specify user segment...">
-    <div class="form-text">Select all primary user groups.</div>
+
+    <input type="text" name="user_role_segment_other" id="user_role_segment_other"
+           class="form-control mt-2 d-none" placeholder="Specify other user segment...">
+    <div class="form-text">Select all applicable audiences or type your own.</div>
   </div>
 
   <!-- 3. How will your app earn money? -->
   <div class="mb-4">
     <label class="form-label fw-semibold">How will your app earn money? (Select all that apply)</label>
     <select name="monetization_model" id="monetization_model" class="form-select multi-select" multiple required>
-      <option value="Subscription (Monthly/Yearly)">Subscription (Monthly/Yearly)</option>
-      <option value="One-Time Purchase">One-Time Purchase (Perpetual License)</option>
-      <option value="Freemium">Freemium (Free + Premium features)</option>
-      <option value="Advertising">Advertising/Sponsorships</option>
-      <option value="In-App Purchases">In-App Purchases (IAP)</option>
-      <option value="Transaction Fee">Transaction Fee/Commission</option>
-      <option value="Data Licensing">Data Licensing/API Access</option>
+      <optgroup label="Direct Revenue Models">
+        <option value="Subscription">Subscription (Monthly / Yearly)</option>
+        <option value="One-Time Purchase">One-Time Purchase / License</option>
+        <option value="Freemium">Freemium (Free plan + Paid upgrade)</option>
+        <option value="In-App Purchases">In-App Purchases (IAP)</option>
+        <option value="Pay-Per-Use / Credits">Pay-Per-Use / Credit System</option>
+      </optgroup>
+
+      <optgroup label="Indirect / Partnership Models">
+        <option value="Advertising">Advertising / Sponsorships</option>
+        <option value="Affiliate Marketing">Affiliate Marketing</option>
+        <option value="Lead Generation">Lead Generation / Referrals</option>
+        <option value="Commission / Transaction Fee">Commission / Marketplace Fee</option>
+        <option value="Crowdfunding">Crowdfunding / Donations</option>
+      </optgroup>
+
+      <optgroup label="Enterprise / B2B Models">
+        <option value="White-Label Licensing">White-Label Licensing</option>
+        <option value="Custom Solutions">Custom Enterprise Solutions</option>
+        <option value="API / Data Licensing">API Access / Data Licensing</option>
+        <option value="SaaS Model">SaaS Model (Recurring B2B sales)</option>
+        <option value="Hardware Bundling">Bundled with Hardware Product</option>
+      </optgroup>
+
       <option value="Other_Money">Other...</option>
     </select>
-    <!-- Input to capture custom text when "Other" is selected -->
-    <input type="text" name="monetization_model_other" id="monetization_model_other" 
-           class="form-control mt-2 d-none" placeholder="Specify revenue model...">
-    <div class="form-text">Choose one or more revenue models.</div>
+
+    <input type="text" name="monetization_model_other" id="monetization_model_other"
+           class="form-control mt-2 d-none" placeholder="Specify other revenue model...">
+    <div class="form-text">Choose one or more revenue streams or type your own.</div>
   </div>
 
   <div class="text-end mt-5">
-    <button type="submit" class="btn btn-primary px-4" style="background-color: #1b33a9; border-color: #1b33a9;">Next →</button>
+    <button type="submit" class="btn btn-primary px-4" style="background-color:#1b33a9;border-color:#1b33a9;">Next →</button>
   </div>
 </form>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const userSelect = document.getElementById('user_role_segment');
-    const userOtherInput = document.getElementById('user_role_segment_other');
-    const moneySelect = document.getElementById('monetization_model');
-    const moneyOtherInput = document.getElementById('monetization_model_other');
+  const userSelect = document.getElementById('user_role_segment');
+  const userOtherInput = document.getElementById('user_role_segment_other');
+  const moneySelect = document.getElementById('monetization_model');
+  const moneyOtherInput = document.getElementById('monetization_model_other');
 
-    // --- Helper function to handle "Other" visibility and selection ---
-    function handleOther(selectElement, otherInput) {
-        const otherValue = Array.from(selectElement.options).find(opt => opt.value.endsWith('_Other'));
-        
-        // Check if 'Other' option is selected
-        const isOtherSelected = Array.from(selectElement.selectedOptions).some(opt => opt.value.endsWith('_Other'));
-
-        if (isOtherSelected) {
-            otherInput.classList.remove('d-none');
-            otherInput.setAttribute('required', 'required');
-        } else {
-            otherInput.classList.add('d-none');
-            otherInput.removeAttribute('required');
-            otherInput.value = ''; // Clear text field if 'Other' is deselected
-        }
+  function handleOther(selectEl, inputEl, matchValue) {
+    const selected = Array.from(selectEl.selectedOptions).map(o => o.value);
+    if (selected.includes(matchValue)) {
+      inputEl.classList.remove('d-none');
+      inputEl.required = true;
+    } else {
+      inputEl.classList.add('d-none');
+      inputEl.required = false;
+      inputEl.value = '';
     }
+  }
 
-    // --- Event Listeners ---
-    userSelect.addEventListener('change', () => handleOther(userSelect, userOtherInput));
-    moneySelect.addEventListener('change', () => handleOther(moneySelect, moneyOtherInput));
+  userSelect.addEventListener('change', () => handleOther(userSelect, userOtherInput, 'Other_User'));
+  moneySelect.addEventListener('change', () => handleOther(moneySelect, moneyOtherInput, 'Other_Money'));
 
-    // --- Initial State Check (important for re-populating) ---
-    handleOther(userSelect, userOtherInput);
-    handleOther(moneySelect, moneyOtherInput);
+  // Pre-populate saved data
+  const storedUser = "{{ user_role_segment | default('') }}".split(', ');
+  const storedMoney = "{{ monetization_model | default('') }}".split(', ');
 
-    // --- Form Submission Pre-processing (to combine 'Other' text) ---
-    const form = document.querySelector('form');
-    form.addEventListener('submit', function(event) {
-        // 1. Handle User Role Segment
-        if (userSelect.value.includes('Other_User')) {
-            const otherText = userOtherInput.value.trim();
-            if (otherText) {
-                // Remove the placeholder 'Other_User' option
-                Array.from(userSelect.options).find(opt => opt.value === 'Other_User').remove();
-                // Add the custom text as a new option that will be submitted
-                const newOption = new Option(otherText, otherText, true, true);
-                userSelect.add(newOption);
-            }
-        }
+  storedUser.forEach(val => {
+    if (!val) return;
+    const opt = userSelect.querySelector(`option[value="${val}"]`);
+    if (opt) opt.selected = true;
+    else userSelect.add(new Option(val, val, true, true));
+  });
 
-        // 2. Handle Monetization Model
-        if (moneySelect.value.includes('Other_Money')) {
-            const otherText = moneyOtherInput.value.trim();
-            if (otherText) {
-                // Remove the placeholder 'Other_Money' option
-                Array.from(moneySelect.options).find(opt => opt.value === 'Other_Money').remove();
-                // Add the custom text as a new option that will be submitted
-                const newOption = new Option(otherText, otherText, true, true);
-                moneySelect.add(newOption);
-            }
-        }
-        
-        // The form submission will now include all selected options, including any custom ones added above.
-    });
+  storedMoney.forEach(val => {
+    if (!val) return;
+    const opt = moneySelect.querySelector(`option[value="${val}"]`);
+    if (opt) opt.selected = true;
+    else moneySelect.add(new Option(val, val, true, true));
+  });
 
-    // --- Re-population Logic (to restore state from session/flash) ---
-    // This ensures that if the user hits 'Back' or an error occurs, their custom text remains selected.
-    const storedUserRoles = "{{ user_role_segment | default('') }}".split(', ');
-    const storedMoneyModels = "{{ monetization_model | default('') }}".split(', ');
-    
-    storedUserRoles.forEach(val => {
-        const option = userSelect.querySelector(`option[value="${val}"]`);
-        if (option && option.value !== 'Other_User') {
-            option.selected = true;
-        } else if (val && val !== 'Other_User') {
-            // Handle case where custom text was previously entered and saved in session
-            const newOption = new Option(val, val, true, true);
-            userSelect.add(newOption);
-        }
-    });
+  handleOther(userSelect, userOtherInput, 'Other_User');
+  handleOther(moneySelect, moneyOtherInput, 'Other_Money');
 
-    storedMoneyModels.forEach(val => {
-        const option = moneySelect.querySelector(`option[value="${val}"]`);
-        if (option && option.value !== 'Other_Money') {
-            option.selected = true;
-        } else if (val && val !== 'Other_Money') {
-            // Handle case where custom text was previously entered and saved in session
-            const newOption = new Option(val, val, true, true);
-            moneySelect.add(newOption);
-        }
-    });
-    
-    // Re-check state after re-population
-    handleOther(userSelect, userOtherInput);
-    handleOther(moneySelect, moneyOtherInput);
+  // Merge custom 'Other' values before submit
+  document.querySelector('form').addEventListener('submit', () => {
+    if (userSelect.value.includes('Other_User') && userOtherInput.value.trim()) {
+      userSelect.add(new Option(userOtherInput.value.trim(), userOtherInput.value.trim(), true, true));
+    }
+    if (moneySelect.value.includes('Other_Money') && moneyOtherInput.value.trim()) {
+      moneySelect.add(new Option(moneyOtherInput.value.trim(), moneyOtherInput.value.trim(), true, true));
+    }
+  });
 });
 </script>
-
 {% endblock %}
