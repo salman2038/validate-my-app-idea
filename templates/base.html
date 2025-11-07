@@ -34,8 +34,8 @@
       color: var(--primary-color);
     }
     .navbar-brand img {
-      height: 70px;
-      width: 100%;
+      height: 65px;
+      width: auto;
     }
 
     .navbar-nav .nav-link {
@@ -154,30 +154,49 @@
 </head>
 
 <body>
+  <!-- 🔹 Global Navbar -->
   <nav class="navbar navbar-light mb-4">
     <div class="container d-flex justify-content-between align-items-center">
-      <a class="navbar-brand" href="{{ url_for('step1') }}">
+      <!-- Left: Logo -->
+      <a class="navbar-brand" href="{{ url_for('home') }}">
         <img src="{{ url_for('static', filename='images/logo.png') }}" alt="App Logo">
       </a>
 
-      {% if session.get('user_email') %}
-      <ul class="navbar-nav flex-row">
-        {% if session.get('role') == 'admin' %}
-        <li class="nav-item me-3">
-          <a class="nav-link fw-bold text-danger" href="{{ url_for('admin_dashboard') }}">👑 Admin</a>
-        </li>
+      <!-- Right: Auth/User Controls -->
+      <ul class="navbar-nav flex-row align-items-center">
+        {% if session.get('user_email') %}
+          {% if session.get('role') == 'admin' %}
+            <li class="nav-item me-3">
+              <a class="nav-link fw-bold text-danger" href="{{ url_for('admin_dashboard') }}">👑 Admin</a>
+            </li>
+          {% endif %}
+
+          <li class="nav-item me-3">
+            <span class="nav-link fw-semibold text-dark">👤 {{ session.get('user_name', session.get('user_email')) }}</span>
+          </li>
+          <li class="nav-item me-3">
+            <a class="nav-link" href="{{ url_for('dashboard') }}">🏠 Dashboard</a>
+          </li>
+          <li class="nav-item me-3">
+            <a class="nav-link" href="{{ url_for('reports') }}">📄 Reports</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link text-danger" href="{{ url_for('logout') }}">🚪 Logout</a>
+          </li>
+
+        {% else %}
+          <li class="nav-item me-2">
+            <a class="btn btn-primary btn-sm" href="{{ url_for('login') }}">Login</a>
+          </li>
+          <li class="nav-item">
+            <a class="btn btn-outline-primary btn-sm" href="{{ url_for('register') }}">Sign Up</a>
+          </li>
         {% endif %}
-        <li class="nav-item me-3">
-          <a class="nav-link" href="{{ url_for('reports') }}">📄 Reports</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link text-danger" href="{{ url_for('logout') }}">🚪 Logout</a>
-        </li>
       </ul>
-      {% endif %}
     </div>
   </nav>
 
+  <!-- 🔹 Page Content -->
   <div class="container mb-5">
     {% if show_stepper %}
     <!-- Stepper progress bar -->
@@ -200,6 +219,7 @@
     {% block content %}{% endblock %}
   </div>
 
+  <!-- 🔹 Footer -->
   <footer class="text-center py-3">
     <small>© {{ 2025 }} <a href="https://validatemyappidea.com">Validate My App Idea</a> — All rights reserved</small>
   </footer>

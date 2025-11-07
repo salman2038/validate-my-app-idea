@@ -180,6 +180,9 @@ def get_db_connection():
     conn.row_factory = sqlite3.Row
     return conn
 
+@app.route("/")
+def home():
+    return render_template("index.html", title="Validate My App Idea")
 # ---------- Auth: Signup / Local Login ----------
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
