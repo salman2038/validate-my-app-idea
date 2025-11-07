@@ -189,17 +189,16 @@
     <!-- 1. HEADER (Fixed) -->
     <header class="header">
         <div class="container">
-            <a href="#" class="header-logo">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4.06286 19.3411L12.0001 3.5L19.9373 19.3411C19.2273 20.3235 18.0435 21 16.7143 21H7.28583C5.95656 21 4.77273 20.3235 4.06286 19.3411Z" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 3.5V12L16.7143 21" stroke="#0052FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <span>Valido</span>
+            <a href="https://validatemyappidea.com/" class="header-logo">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="App Logo">
             </a>
             <!-- Desktop Nav -->
-            <nav class="header-nav">
+            <!-- <nav class="header-nav">
                 <a href="#">Features</a>
                 <a href="#">Pricing</a>
                 <a href="#">Case Studies</a>
                 <a href="#">Resources</a>
-            </nav>
+            </nav> -->
             <div class="header-actions">
                 <a href="#" class="btn-secondary">Sign In</a>
                 <a href="#" class="cta-button">Sign Up</a>
@@ -213,13 +212,13 @@
 
     <!-- MOBILE NAVIGATION MENU -->
     <nav class="mobile-nav">
-        <a href="#">Features</a>
+        <!-- <a href="#">Features</a>
         <a href="#">Pricing</a>
         <a href="#">Case Studies</a>
-        <a href="#">Resources</a>
+        <a href="#">Resources</a> -->
         <div class="mobile-actions">
-            <a href="#" class="btn-secondary">Sign In</a>
-            <a href="#" class="cta-button">Sign Up</a>
+            <a href="https://validatemyappidea.com/login" class="btn-secondary">Sign In</a>
+            <a href="https://validatemyappidea.com/signup" class="cta-button">Sign Up</a>
         </div>
     </nav>
 
@@ -315,7 +314,7 @@
                 <div class="case-study-content">
                     <p class="quote">"We were about to spend $50k building an app based on a hunch. Valido's platform showed us our core assumption was wrong. We pivoted based on the feedback and just closed our pre-seed round."</p>
                     <p class="attribution">ALEX CHEN, FOUNDER OF SYNCUP</p>
-                    <a href="#" class="cta-button">Read the Full Case Study</a>
+                    <!-- <a href="#" class="cta-button">Read the Full Case Study</a> -->
                 </div>
             </div>
         </section>
@@ -323,14 +322,20 @@
         <section class="final-cta-section">
             <div class="container">
                 <h2>Ready to Validate Your Vision?</h2>
-                <a href="#" class="cta-button">Validate Your Idea for Free</a>
+                   <a href="{{ url_for('dashboard') if session.get('user_email') else url_for('login') }}" class="cta-button">
+                    {% if session.get('user_email') %}
+                        Go to Dashboard
+                    {% else %}
+                        Validate Your Idea for Free
+                    {% endif %}
+                </a>
             </div>
         </section>
     </main>
 
     <footer class="footer">
         <div class="container">
-            <div class="footer-grid">
+            <!-- <div class="footer-grid">
                 <div>
                     <h4>Valido</h4>
                     <p style="color: #A0AEC0;">Build with confidence.</p>
@@ -347,9 +352,9 @@
                     <h4>Contact</h4>
                     <ul><li><a href="#">support@valido.app</a></li><li><a href="#">LinkedIn</a></li><li><a href="#">Twitter</a></li></ul>
                 </div>
-            </div>
+            </div> -->
             <div class="footer-legal">
-                &copy; 2024 Valido Inc. &nbsp; | &nbsp; 
+                &copy; 2025 Validate My App Idea &nbsp; | &nbsp; 
                 <a href="#">Privacy Policy</a> &nbsp; | &nbsp; 
                 <a href="#">Terms of Service</a>
             </div>
