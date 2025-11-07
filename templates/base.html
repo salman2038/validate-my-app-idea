@@ -156,7 +156,7 @@
 <body>
   <nav class="navbar navbar-light mb-4">
     <div class="container d-flex justify-content-between align-items-center">
-      <a class="navbar-brand" href="{{ url_for('step1') }}">
+      <a class="navbar-brand" href="{{ url_for('/') }}">
         <img src="{{ url_for('static', filename='images/logo.png') }}" alt="App Logo">
       </a>
 
@@ -172,6 +172,11 @@
         </li>
         <li class="nav-item">
           <a class="nav-link text-danger" href="{{ url_for('logout') }}">🚪 Logout</a>
+        </li>
+        <li>
+          <span class="navbar-text me-3">
+        Hello {{ user_name or user_email }}
+          </span>
         </li>
       </ul>
       {% endif %}
