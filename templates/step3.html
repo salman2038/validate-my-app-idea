@@ -99,6 +99,30 @@
   </form>
 </div>
 
+<!-- 🔄 Loader Overlay (Branded Gemini API Loader) -->
+<div id="loading-overlay" class="d-none">
+  <div class="loader-container text-center">
+    <div class="lds-ring">
+      <div></div><div></div><div></div><div></div>
+    </div>
+    <h5 class="mt-4 fw-semibold" style="color: var(--primary-color);">
+      Analyzing your idea...
+    </h5>
+    <p style="color: #555;">Please wait while we process your submission using AI</p>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.querySelector('form');
+  const loader = document.getElementById('loading-overlay');
+
+  form.addEventListener('submit', function() {
+    loader.classList.add('active');
+  });
+});
+</script>
+
 <script>
 document.addEventListener("DOMContentLoaded", function(){
   const select = document.getElementById("externalIntegrations");
