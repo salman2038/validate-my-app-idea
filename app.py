@@ -982,6 +982,18 @@ def admin_submissions():
 
     return render_template("admin_submissions.html", submissions=rows, title="All User Submissions")
 
+@app.route("/privacy-policy")
+def privacy_policy():
+    return render_template("privacy_policy.html", title="Privacy Policy")
+
+@app.route("/terms")
+def terms():
+    return render_template("terms.html", title="Terms & Conditions")
+
+@app.route("/disclaimer")
+def disclaimer():
+    return render_template("disclaimer.html", title="Professional Disclaimer")
+
 if __name__ == '__main__':
     # Add dummy inputs for testing purposes if the database is empty
     conn = sqlite3.connect(DB_NAME)

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title or "Validate My App Idea" }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NRCV84THTN"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-NRCV84THTN');
+    </script>
+
+    <style>
+        :root {
+            --color-navy: #0D1B2A;
+            --color-blue: #0052FF;
+            --color-white: #FFFFFF;
+            --color-gray-text: #4A5568;
+            --color-light-gray: #F7FAFC;
+        }
+        body { font-family: 'Inter', sans-serif; margin: 0; background: var(--color-white); color: var(--color-navy); }
+
+        /* Header */
+        .header { position: fixed; top: 0; left: 0; width: 100%; background-color: var(--color-navy); padding: 16px 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; }
+        .header-logo img { height: 60px; }
+        .header-actions a { text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 600; margin-left: 10px; }
+        .btn-secondary { border: 2px solid #fff; color: #fff; }
+        .cta-button { background-color: var(--color-blue); color: white; border: none; }
+        .cta-button:hover { background-color: #003bb8; }
+
+        /* Footer */
+        footer { background-color: var(--color-navy); color: #A0AEC0; text-align: center; padding: 40px 0; margin-top: 60px; }
+        footer a { color: #A0AEC0; text-decoration: none; margin: 0 8px; }
+        footer a:hover { color: var(--color-white); }
+
+        main { padding-top: 120px; } /* to offset fixed header */
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <!-- <header class="header">
+        <div class="container">
+            <a href="{{ url_for('home') }}" class="header-logo">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="App Logo">
+            </a>
+            <div class="header-actions">
+                <a href="{{ url_for('login') }}" class="btn-secondary">Sign In</a>
+                <a href="{{ url_for('signup') }}" class="cta-button">Sign Up</a>
+            </div>
+        </div>
+    </header> -->
+    <!-- 1. HEADER (Fixed) -->
+    <header class="header">
+        <div class="container">
+            <a href="{{ url_for('home') }}" class="header-logo">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="App Logo">
+            </a>
+            <!-- Desktop Nav -->
+            <!-- <nav class="header-nav">
+                <a href="#">Features</a>
+                <a href="#">Pricing</a>
+                <a href="#">Case Studies</a>
+                <a href="#">Resources</a>
+            </nav> -->
+            <div class="header-actions">
+                <a href="{{ url_for('login') }}" class="btn-secondary">Sign In</a>
+                <a href="{{ url_for('signup') }}" class="cta-button">Sign Up</a>
+            </div>
+            <!-- Mobile Hamburger Button -->
+            <button class="hamburger-button">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 12H21" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 6H21" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 18H21" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- MOBILE NAVIGATION MENU -->
+    <nav class="mobile-nav">
+        <!-- <a href="#">Features</a>
+        <a href="#">Pricing</a>
+        <a href="#">Case Studies</a>
+        <a href="#">Resources</a> -->
+        <div class="mobile-actions">
+            <a href="{{ url_for('login') }}" class="btn-secondary">Sign In</a>
+            <a href="{{ url_for('signup') }}" class="cta-button">Sign Up</a>
+        </div>
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <small>
+            © {{ 2025 }} Validate My App Idea &nbsp; | &nbsp;
+            <a href="{{ url_for('privacy_policy') }}">Privacy Policy</a> |
+            <a href="{{ url_for('terms') }}">Terms & Conditions</a> |
+            <a href="{{ url_for('disclaimer') }}">Professional Disclaimer</a>
+        </small>
+    </footer>
+</body>
+</html>
