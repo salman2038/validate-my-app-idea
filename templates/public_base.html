@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="en"><head>
+<html lang="en">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Valido | Validate Your App Idea (Responsive)</title>
@@ -200,24 +201,24 @@
   }
 </style></head>
 
-<body cz-shortcut-listen="true">
+<body>
     <!-- Header -->
     <!-- <header class="header">
         <div class="container">
-            <a href="/" class="header-logo">
-                <img src="/static/images/logo.png" alt="App Logo">
+            <a href="{{ url_for('home') }}" class="header-logo">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="App Logo">
             </a>
             <div class="header-actions">
-                <a href="/login" class="btn-secondary">Sign In</a>
-                <a href="/signup" class="cta-button">Sign Up</a>
+                <a href="{{ url_for('login') }}" class="btn-secondary">Sign In</a>
+                <a href="{{ url_for('signup') }}" class="cta-button">Sign Up</a>
             </div>
         </div>
     </header> -->
     <!-- 1. HEADER (Fixed) -->
     <header class="header">
         <div class="container">
-            <a href="/" class="header-logo">
-                <img src="/static/images/logo-w.png" alt="App Logo">
+            <a href="{{ url_for('home') }}" class="header-logo">
+                <img src="{{ url_for('static', filename='images/logo-w.png') }}" alt="App Logo">
             </a>
             <!-- Desktop Nav -->
             <!-- <nav class="header-nav">
@@ -227,12 +228,12 @@
                 <a href="#">Resources</a>
             </nav> -->
             <div class="header-actions">
-                <a href="/login" class="btn-secondary">Sign In</a>
-                <a href="/signup" class="cta-button">Sign Up</a>
+                <a href="{{ url_for('login') }}" class="btn-secondary">Sign In</a>
+                <a href="{{ url_for('signup') }}" class="cta-button">Sign Up</a>
             </div>
             <!-- Mobile Hamburger Button -->
             <button class="hamburger-button">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 12H21" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M3 6H21" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M3 18H21" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 12H21" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 6H21" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 18H21" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
         </div>
     </header>
@@ -244,111 +245,13 @@
         <a href="#">Case Studies</a>
         <a href="#">Resources</a> -->
         <div class="mobile-actions">
-            <a href="/login" class="btn-secondary">Sign In</a>
-            <a href="/signup" class="cta-button">Sign Up</a>
+            <a href="{{ url_for('login') }}" class="btn-secondary">Sign In</a>
+            <a href="{{ url_for('signup') }}" class="cta-button">Sign Up</a>
         </div>
     </nav>
 
     <main class="container">
-        
-
-        <!-- Paste the same main content from the previous step here -->
-        <section class="hero-section">
-            <div class="hero-background"></div>
-            <div class="container hero-content">
-                <h1>Validate Your App Idea Before You Build It</h1>
-                <p class="subtitle">Stop guessing. Use real data to test your concept, find product-market fit, and build something people will actually pay for.</p>
-                <a href="/login" class="cta-button">
-                    
-                        Validate Your Idea for Free
-                    
-                </a>
-                <p class="butoon-below">No credit card required. 100% Free.</p>
-            </div>
-        </section>
-
-        <section class="trust-bar">
-            <div class="container">
-                 <svg viewBox="0 0 105 25" xmlns="http://www.w3.org/2000/svg"><text x="0" y="20" font-family="Arial" font-size="20" font-weight="bold">Pixelate</text></svg>
-                <svg viewBox="0 0 135 25" xmlns="http://www.w3.org/2000/svg"><text x="0" y="20" font-family="Georgia" font-size="20" font-style="italic">SyncUp</text></svg>
-                <svg viewBox="0 0 115 25" xmlns="http://www.w3.org/2000/svg"><text x="0" y="20" font-family="Verdana" font-size="20" font-weight="bold">Briefly</text></svg>
-                <svg viewBox="0 0 120 25" xmlns="http://www.w3.org/2000/svg"><text x="0" y="20" font-family="Times New Roman" font-size="20" font-weight="bold">AirTable</text></svg>
-                <svg viewBox="0 0 100 25" xmlns="http://www.w3.org/2000/svg"><text x="0" y="20" font-family="monospace" font-size="20">NextJS</text></svg>
-            </div>
-        </section>
-
-        <section class="services-section">
-            <div class="container">
-                <div class="section-header">
-                    <h2>Your Step-by-Step Validation Toolkit</h2>
-                    <p>Our platform guides you through the essential stages of idea validation, giving you clarity and confidence at every step.</p>
-                </div>
-                <div class="services-grid">
-                    <div class="service-card">
-                        <div class="icon">
-                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
-                        </div>
-                        <h3>Market Demand Analysis</h3>
-                        <p>Define your target audience, analyze search trends and competitor landscapes, and quantify the pain point your app solves.</p>
-                    </div>
-                    <div class="service-card">
-                        <div class="icon">
-                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
-                        </div>
-                        <h3>Interactive Prototyping</h3>
-                        <p>Create clickable, high-fidelity prototypes of your app in minutes. No code required. Perfect for demos and user testing.</p>
-                    </div>
-                    <div class="service-card">
-                        <div class="icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                        </div>
-                        <h3>User Feedback Surveys</h3>
-                        <p>Launch targeted surveys to your audience using your prototype. Collect quantitative and qualitative feedback on features and pricing.</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section class="value-prop-section">
-            <div class="container">
-                <div class="value-prop-grid">
-                    <div class="value-prop-viz">
-                        <img src="/static/images/home-02.webp" alt="App Logo">
-                    </div>
-                    <div class="value-prop-content">
-                        <h2>From Guesswork to Data</h2>
-                        <ul class="value-prop-list">
-                            <li><strong>Save thousands in development costs</strong> by ensuring you're building the right features for the right audience from day one.</li>
-                            <li><strong>Achieve product-market fit faster.</strong> Our data-driven process eliminates bias and identifies the core value your users are willing to pay for.</li>
-                            <li><strong>Gain investor confidence.</strong> Pitch your idea backed by real user feedback, market data, and a clear validation report.</li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section class="case-study-section">
-            <div class="container">
-                <div class="case-study-content">
-                    <p class="quote">"We were about to spend $50k building an app based on a hunch. Valido's platform showed us our core assumption was wrong. We pivoted based on the feedback and just closed our pre-seed round."</p>
-                    <p class="attribution">ALEX CHEN, FOUNDER OF SYNCUP</p>
-                    <!-- <a href="#" class="cta-button">Read the Full Case Study</a> -->
-                </div>
-            </div>
-        </section>
-
-        <section class="final-cta-section">
-            <div class="container">
-                <h2>Ready to Validate Your Vision?</h2>
-                   <a href="/login" class="cta-button">
-                    
-                        Validate Your Idea for Free
-                    
-                </a>
-                <p class="butoon-below">No credit card required. 100% Free.</p>
-            </div>
-        </section>
-
+        {% block content %}{% endblock %}
     </main>
 
     
@@ -372,7 +275,7 @@
                     <ul><li><a href="#">support@valido.app</a></li><li><a href="#">LinkedIn</a></li><li><a href="#">Twitter</a></li></ul>
                 </div>
             </div> -->
-            <div class="footer-legal">
+              <div class="footer-legal">
                 © 2025 Validate My App Idea &nbsp; | &nbsp; Free utility developed by: <b><a href="https://datarector.com/">DataRector</a></b><br>
                 <a href="/privacy-policy">Privacy Policy</a> |
                 <a href="/terms">Terms &amp; Conditions</a> |
@@ -390,7 +293,6 @@
             document.body.classList.toggle('no-scroll');
         });
     </script>
-
 
 </body>
 </html>
