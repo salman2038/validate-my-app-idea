@@ -8,13 +8,13 @@
                 <h1>Validate Your App Idea Before You Build It</h1>
                 <p class="subtitle">Stop guessing. Use real data to test your concept, find product-market fit, and build something people will actually pay for.</p>
                 <a href="{{ url_for('dashboard') if session.get('user_email') else url_for('login') }}" class="cta-button">
-                    <p class="butoon-below">No credit card required. 100% Free.</p>
                     {% if session.get('user_email') %}
                         Go to Dashboard
                     {% else %}
                         Validate Your Idea for Free
                     {% endif %}
                 </a>
+                <p class="butoon-below">No credit card required. 100% Free.</p>
             </div>
         </section>
 
@@ -64,7 +64,7 @@
             <div class="container">
                 <div class="value-prop-grid">
                     <div class="value-prop-viz">
-                        <img src="{{ url_for('static', filename='images/home.webp') }}" alt="App Logo">
+                        <img src="{{ url_for('static', filename='images/home-02.webp') }}" alt="App Logo">
                     </div>
                     <div class="value-prop-content">
                         <h2>From Guesswork to Data</h2>
@@ -92,13 +92,13 @@
             <div class="container">
                 <h2>Ready to Validate Your Vision?</h2>
                    <a href="{{ url_for('dashboard') if session.get('user_email') else url_for('login') }}" class="cta-button">
-                    <p class="butoon-below">No credit card required. 100% Free.</p>
                     {% if session.get('user_email') %}
                         Go to Dashboard
                     {% else %}
                         Validate Your Idea for Free
                     {% endif %}
                 </a>
+                <p class="butoon-below">No credit card required. 100% Free.</p>
             </div>
         </section>
 {% endblock %}
